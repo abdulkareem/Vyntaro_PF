@@ -2,7 +2,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/components/*": ["app/components/*"]
+      "@/*": ["app/*"]
     },
 
     "target": "ES2020",
