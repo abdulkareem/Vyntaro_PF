@@ -2,6 +2,7 @@ import MobileHeader from "../components/MobileHeader";
 import BottomNav from "../components/BottomNav";
 import BalanceCard from "../components/BalanceCard";
 
+
 export default function DashboardPage() {
   return (
     <div className="pb-20">
