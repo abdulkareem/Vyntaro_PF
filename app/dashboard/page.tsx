@@ -1,6 +1,6 @@
-import MobileHeader from "../components/MobileHeader";
-import BottomNav from "../components/BottomNav";
-import BalanceCard from "../components/BalanceCard";
+import MobileHeader from "@/components/MobileHeader";
+import BottomNav from "@/components/BottomNav";
+import BalanceCard from "@/components/BalanceCard";
 
 
 export default function DashboardPage() {
