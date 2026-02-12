@@ -1,5 +1,5 @@
-import MobileHeader from "../components/MobileHeader";
-import BottomNav from "../components/BottomNav";
+import MobileHeader from "@/components/MobileHeader";
+import BottomNav from "@/components/BottomNav";
 
 export default function SettingsPage() {
   return (
