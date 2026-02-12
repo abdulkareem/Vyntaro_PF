@@ -9,7 +9,7 @@ export default function DashboardPage() {
       <MobileHeader title="Dashboard" />
 
       <div className="p-4 space-y-4">
-        <BalanceCard />
+        <BalanceCard title="Today's Sales" amount="₹12,450" />
 
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white dark:bg-slate-800 p-4 rounded-xl">
