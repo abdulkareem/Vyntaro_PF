@@ -1,5 +1,5 @@
-import MobileHeader from "../components/MobileHeader";
-import BottomNav from "../components/BottomNav";
+import MobileHeader from "@/components/MobileHeader";
+import BottomNav from "@/components/BottomNav";
 
 const data = [
   { name: "Swiggy", amt: -800 },
