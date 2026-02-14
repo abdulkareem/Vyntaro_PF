@@ -17,7 +17,7 @@ export default function ChangePin() {
     const r = await updatePin(u!.mobile, oldPin, p1)
     setLoading(false)
     if (r.ok) setMessage('PIN updated')
-    else setError(r.reason === 'invalid' ? 'Current PIN incorrect' : 'Failed to update PIN')
+    else setError(r.reason === 'not_supported' ? (r.message ?? 'This flow is not available yet.') : (r.reason === 'invalid' ? 'Current PIN incorrect' : 'Failed to update PIN'))
   }
 
   return (

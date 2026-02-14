@@ -15,15 +15,20 @@ export default function Login() {
     setLoading(true)
     setError(null)
     setHint(null)
-    const r = await loginWithPin(mobile, pin)
-    setLoading(false)
-    if (r.ok) {
-      nav('/dashboard', { replace: true })
-    } else if (r.reason === 'device_unverified') {
-      if (import.meta.env.DEV && r.needsOTP) setHint(`Dev device OTP: ${r.needsOTP}`)
-      nav(`/verify?mobile=${encodeURIComponent(mobile)}&mode=device`)
-    } else {
+    try {
+      const r = await loginWithPin(mobile, pin)
+      if (r.ok) {
+        nav('/dashboard', { replace: true })
+      } else if (r.reason === 'device_unverified') {
+        if (import.meta.env.DEV && r.needsOTP) setHint(`Dev device OTP: ${r.needsOTP}`)
+        nav(`/verify?mobile=${encodeURIComponent(mobile)}&mode=device`)
+      } else {
+        setError('Invalid credentials')
+      }
+    } catch {
       setError('Invalid credentials')
+    } finally {
+      setLoading(false)
     }
   }
 

@@ -43,10 +43,12 @@ export default function Verify() {
         if (!r.ok) setError('Invalid or expired code')
         else nav('/dashboard', { replace: true })
       } else {
-        const r = verifyRegistrationOTP(mobile, phoneCode, emailCode)
+        const r = await verifyRegistrationOTP(mobile, phoneCode, emailCode)
         if (!r.ok) setError('Invalid or expired codes')
         else nav(`/set-pin?mobile=${encodeURIComponent(mobile)}`, { replace: true })
       }
+    } catch {
+      setError('Invalid or expired codes')
     } finally {
       setLoading(false)
     }
