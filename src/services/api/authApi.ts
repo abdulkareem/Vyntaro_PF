@@ -28,39 +28,57 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) {
     if (typeof data === 'object' && data) {
       const payload = data as { error?: unknown; message?: string }
-      throw new Error(payload.error ? JSON.stringify(payload.error) : payload.message || 'Request failed')
+      throw new Error(
+        payload.error
+          ? JSON.stringify(payload.error)
+          : payload.message || 'Request failed'
+      )
     }
 
-    throw new Error(typeof data === 'string' && data.trim() ? data : 'Request failed')
+    throw new Error(
+      typeof data === 'string' && data.trim()
+        ? data
+        : 'Request failed'
+    )
   }
 
   return data as T
 }
 
+/* ---------------- REGISTER ---------------- */
+
 export function registerStartApi(input: RegisterStartInput) {
-  return post<{ userId: string; devOtp?: { phoneOtp: string; emailOtp: string } }>('/api/auth/register/start', input)
+  return post<{
+    userId: string
+    devOtp?: { phoneOtp: string; emailOtp: string }
+  }>('/api/auth/register/start', input)
 }
 
-export function verifyRegistrationApi(input: { phone: string; phoneCode: string; emailCode: string }) {
-  return post<{ ok: true }>('/api/auth/register/verify', input)
+export function verifyRegistrationApi(input: { phone: string; otp: string }) {
+  return post<{
+    ok: true
+    user?: { id: string; phone: string; email?: string | null; verifiedAt?: string | null }
+    next?: string
+  }>('/api/auth/register/verify', input)
 }
+
+/* ---------------- PIN ---------------- */
 
 export function setPinApi(input: { phone: string; pin: string }) {
   return post<{ ok: true }>('/api/auth/pin/set', input)
 }
 
+/* ---------------- LOGIN ---------------- */
+
 export function loginApi(input: { phone: string; pin: string }) {
-  return post<{ ok: true; user: { id: string; phone: string; email?: string | null; verifiedAt?: string | null } }>('/api/auth/login', input)
-}
-
-export function checkIdentityApi(input: { phone: string; email?: string }) {
-  return post<{ exists: boolean }>('/api/auth/check-identity', input)
-}
-
-export function requestOtpApi(input: { phone: string; email?: string; resend?: boolean }) {
-  return post<{ ok: true }>('/api/auth/otp', input)
-}
-
-export function verifyOtpApi(input: { phone: string; otp: string }) {
-  return post<{ ok?: boolean; profileExists?: boolean; identityExists?: boolean; action?: string; token?: string }>('/api/auth/verify', input)
+  return post<{
+    ok: true
+    user: {
+      id: string
+      phone: string
+      email?: string | null
+      verifiedAt?: string | null
+    }
+    next?: string
+  }>('/api/auth/login', input)
 }
