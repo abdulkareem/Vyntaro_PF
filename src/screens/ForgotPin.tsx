@@ -47,7 +47,7 @@ export default function ForgotPin() {
       <div className="section-content" style={{ display: 'grid', gap: 12, maxWidth: 420 }}>
         {step === 'request' && (
           <>
-            <input placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value.replace(/\\D/g, '').slice(0, 15))} inputMode="numeric" pattern="\\d{7,15}" />
+            <input placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 15))} inputMode="numeric" pattern="[0-9]{7,15}" />
             <button onClick={request} disabled={loading}>{loading ? 'Sending…' : 'Send OTP'}</button>
           </>
         )}

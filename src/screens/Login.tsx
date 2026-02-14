@@ -31,7 +31,7 @@ export default function Login() {
     <div className="section" id="login">
       <h2>Login</h2>
       <form onSubmit={submit} className="section-content" style={{ display: 'grid', gap: 12, maxWidth: 420 }}>
-        <input placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 15))} inputMode="numeric" pattern="\\d{7,15}" required />
+        <input placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 15))} inputMode="numeric" pattern="[0-9]{7,15}" required />
         <input placeholder="PIN" value={pin} onChange={e => setPin(e.target.value)} required type="password" />
         <button type="submit" disabled={loading}>{loading ? 'Logging in…' : 'Login'}</button>
         <button type="button" onClick={() => nav('/forgot-pin')}>Forgot PIN?</button>
