@@ -16,6 +16,33 @@ export type BudgetItem = {
   total: number
 }
 
+export type QuickJob = {
+  id: string
+  label: string
+  icon: string
+  href: string
+}
+
+export type SmartShortcut = {
+  id: string
+  text: string
+  href: string
+}
+
+export type ActivityItem = {
+  id: string
+  text: string
+  href: string
+}
+
+export type BillItem = {
+  id: string
+  shop: string
+  amount: number
+  date: string
+  href: string
+}
+
 export type DashboardData = {
   userName: string
   profilePhoto: string
@@ -23,6 +50,10 @@ export type DashboardData = {
   balance: number
   income: number
   expense: number
+  jobs: QuickJob[]
+  shortcuts: SmartShortcut[]
+  activity: ActivityItem[]
+  bills: BillItem[]
   transactions: TransactionItem[]
   budgets: BudgetItem[]
   analytics: Array<{ name: string; income: number; expense: number }>
@@ -42,9 +73,31 @@ export async function fetchDashboard(): Promise<DashboardData> {
     userName: displayName,
     profilePhoto: user?.avatarUrl || fallbackAvatar(displayName),
     monthLabel: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-    balance: 12500.75,
+    balance: 12450,
     income: 8500,
     expense: 3450,
+    jobs: [
+      { id: 'shops', label: 'Order from Shops', icon: '🛒', href: '/dashboard/transactions' },
+      { id: 'rides', label: 'Book Auto / Car', icon: '🚕', href: '/dashboard/budgets' },
+      { id: 'bills', label: 'My Bills', icon: '🧾', href: '/dashboard/transactions?view=bills' },
+      { id: 'add', label: 'Add Expense', icon: '➕', href: '/dashboard/budgets?view=add-expense' }
+    ],
+    shortcuts: [
+      { id: 's1', text: 'Reorder from Anand Stores', href: '/dashboard/transactions?shop=anand' },
+      { id: 's2', text: 'Call Ravi Auto (last used)', href: '/dashboard/budgets?driver=ravi' },
+      { id: 's3', text: 'View latest bill from Fresh Mart', href: '/dashboard/transactions?bill=fresh-mart' }
+    ],
+    activity: [
+      { id: 'a1', text: 'Paid ₹320 at Green Grocery', href: '/dashboard/transactions?activity=a1' },
+      { id: 'a2', text: 'Ordered Rice & Oil from Fresh Mart', href: '/dashboard/transactions?activity=a2' },
+      { id: 'a3', text: 'Auto ride with Ravi – ₹180', href: '/dashboard/budgets?activity=a3' },
+      { id: 'a4', text: 'Electricity Bill uploaded by Shop', href: '/dashboard/transactions?activity=a4' }
+    ],
+    bills: [
+      { id: 'b1', shop: 'Fresh Mart', amount: 640, date: '2026-02-02', href: '/dashboard/transactions?bill=1' },
+      { id: 'b2', shop: 'Green Grocery', amount: 320, date: '2026-01-30', href: '/dashboard/transactions?bill=2' },
+      { id: 'b3', shop: 'City Electronics', amount: 1240, date: '2026-01-25', href: '/dashboard/transactions?bill=3' }
+    ],
     transactions: [
       { id: '1', title: 'Salary', amount: 5000, type: 'income', date: '2026-01-28', href: '/dashboard/transactions?txn=1' },
       { id: '2', title: 'Groceries', amount: -210, type: 'expense', date: '2026-01-27', href: '/dashboard/transactions?txn=2' },
@@ -52,9 +105,9 @@ export async function fetchDashboard(): Promise<DashboardData> {
       { id: '4', title: 'Freelance Payment', amount: 1100, type: 'income', date: '2026-01-25', href: '/dashboard/transactions?txn=4' }
     ],
     budgets: [
-      { id: 'b1', name: 'Food', used: 120, total: 300 },
-      { id: 'b2', name: 'Travel', used: 450, total: 800 },
-      { id: 'b3', name: 'Shopping', used: 200, total: 500 }
+      { id: 'bg1', name: 'Food', used: 120, total: 300 },
+      { id: 'bg2', name: 'Travel', used: 450, total: 800 },
+      { id: 'bg3', name: 'Shopping', used: 200, total: 500 }
     ],
     analytics: [
       { name: 'Jan', income: 4000, expense: 2400 },

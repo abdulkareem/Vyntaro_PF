@@ -683,3 +683,87 @@ body[data-theme='light'] .dashboard-tab {
     display: grid;
   }
 }
+
+.job-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.job-card {
+  text-decoration: none;
+  color: var(--text-primary);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 14px;
+  padding: 14px 10px;
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body[data-theme='light'] .job-card {
+  background: #ffffff;
+}
+
+.job-icon {
+  font-size: 20px;
+}
+
+.shortcut-list,
+.activity-list,
+.bill-list {
+  display: grid;
+  gap: 8px;
+}
+
+.shortcut-link,
+.activity-link,
+.bill-row,
+.bills-all-link {
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.shortcut-link,
+.activity-link,
+.bill-row {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+body[data-theme='light'] .shortcut-link,
+body[data-theme='light'] .activity-link,
+body[data-theme='light'] .bill-row {
+  background: #ffffff;
+}
+
+.bills-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.bills-head .card-heading {
+  margin: 0;
+}
+
+.bill-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+@media (max-width: 767px) {
+  .header {
+    padding: 12px;
+  }
+
+  .dashboard-page {
+    padding: 12px 12px 88px;
+  }
+}

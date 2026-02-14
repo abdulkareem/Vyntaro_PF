@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom'
 
 const items = [
-  { to: '/dashboard', label: 'Home' },
-  { to: '/dashboard/transactions', label: 'Txns' },
-  { to: '/dashboard/budgets', label: 'Budgets' },
-  { to: '/dashboard/analytics', label: 'Charts' },
-  { to: '/dashboard/profile', label: 'Profile' }
+  { to: '/dashboard', label: '🏠 Home' },
+  { to: '/dashboard/transactions', label: '🛒 Shops' },
+  { to: '/dashboard/budgets', label: '➕ Add' },
+  { to: '/dashboard/analytics', label: '📊 Insights' },
+  { to: '/dashboard/profile', label: '👤 Profile' }
 ]
 
 export default function MobileNav() {

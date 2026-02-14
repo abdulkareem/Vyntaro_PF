@@ -16,9 +16,9 @@ export default function Analytics() {
   return (
     <main className="dashboard-page">
       <DashboardTabs />
-      <h2 className="screen-title">Analytics</h2>
+      <h2 className="screen-title">Insights</h2>
       <section className="dashboard-card fade-in-up">
-        <p className="dashboard-subtitle">Income vs Expense Trend</p>
+        <p className="dashboard-subtitle">Money overview</p>
         <div className="analytics-list">
           {points.map(point => (
             <div key={point.name} className="analytics-row">

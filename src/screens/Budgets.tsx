@@ -12,7 +12,8 @@ export default function Budgets() {
   return (
     <main className="dashboard-page">
       <DashboardTabs />
-      <h2 className="screen-title">Budgets</h2>
+      <h2 className="screen-title">Add & Transport</h2>
+      <p className="dashboard-subtitle">Quick expense entry and trusted auto/car actions.</p>
       <div className="budgets-grid">
         {budgets.map(budget => {
           const usedPercent = Math.min(100, (budget.used / budget.total) * 100)
@@ -20,7 +21,7 @@ export default function Budgets() {
             <article key={budget.id} className="dashboard-card fade-in-up">
               <div className="budget-row">
                 <strong>{budget.name}</strong>
-                <span>${budget.used} / ${budget.total}</span>
+                <span>₹{budget.used} / ₹{budget.total}</span>
               </div>
               <div className="budget-track">
                 <div className="budget-fill" style={{ width: `${usedPercent}%` }} />

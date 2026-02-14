@@ -13,7 +13,8 @@ export default function Transactions() {
   return (
     <main className="dashboard-page">
       <DashboardTabs />
-      <h2 className="screen-title">Transactions</h2>
+      <h2 className="screen-title">Shops & Orders</h2>
+      <p className="dashboard-subtitle">Nearby shops, repeat orders, and purchase history.</p>
       <TransactionList items={transactions} />
     </main>
   )
