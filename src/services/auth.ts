@@ -1,4 +1,4 @@
-import { loginApi, requestOtpApi, setPinApi } from './api/authApi'
+import { loginApi, registerStartApi, requestOtpApi, setPinApi } from './api/authApi'
 
 type LocationData = { lat: number; lon: number } | null
 
@@ -86,7 +86,7 @@ export function isAuthenticated(): boolean {
 }
 
 export async function registerStart(input: { mobile: string; email: string; name: string; location: LocationData }) {
-  await requestOtpApi({
+  const response = await registerStartApi({
     phone: input.mobile,
     email: input.email || undefined
   })
@@ -94,10 +94,11 @@ export async function registerStart(input: { mobile: string; email: string; name
   setPendingRegistration({
     mobile: input.mobile,
     email: input.email,
-    name: input.name
+    name: input.name,
+    devOtp: response.devOtp
   })
 
-  return {}
+  return response
 }
 
 export function resendRegistrationOTP(_mobile: string) {
