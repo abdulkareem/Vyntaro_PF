@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import { requestOtpApi, verifyOtpApi } from '../services/api/authApi'
+import { completeOtpSession } from '../services/auth'
 
 type VerifiedIdentity = {
   userId?: string
@@ -53,6 +54,24 @@ export default function Verify() {
 
       if (mode === 'reset-pin') {
         nav(`/set-pin?mobile=${encodeURIComponent(phone)}&reset=1`, { replace: true })
+        return
+      }
+
+      if (mode === 'register') {
+        const pendingRegistration = localStorage.getItem('pending_registration')
+        let pendingName: string | undefined
+        let pendingEmail: string | undefined
+        if (pendingRegistration) {
+          try {
+            const parsed = JSON.parse(pendingRegistration)
+            pendingName = parsed?.name
+            pendingEmail = parsed?.email
+          } catch {
+            pendingName = undefined
+          }
+        }
+        completeOtpSession({ phone, name: pendingName, email: pendingEmail })
+        nav('/dashboard', { replace: true })
         return
       }
 
