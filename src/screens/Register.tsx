@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import { countryDialCodes } from '../lib/countryDialCodes'
@@ -12,10 +12,9 @@ export default function Register() {
     fullName: '',
     email: '',
     phone: '',
-    accountType: 'INDIVIDUAL',
-    shopName: '',
     countryCode: '+91'
   })
+  const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null)
   const [identityStatus, setIdentityStatus] = useState<'unknown' | 'exists' | 'new'>('unknown')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -25,8 +24,6 @@ export default function Register() {
   }
 
   const fullPhone = `${form.countryCode}${form.phone}`
-  const isShopOwner = useMemo(() => form.accountType === 'SHOP_OWNER', [form.accountType])
-
   useEffect(() => {
     if (!form.phone || form.phone.length < 8) return
 
@@ -42,11 +39,28 @@ export default function Register() {
     return () => clearTimeout(timer)
   }, [form.phone, form.email, fullPhone])
 
-  function continueToContact() {
+  function getCurrentLocation(): Promise<{ lat: number; lon: number } | null> {
+    if (!navigator.geolocation) return Promise.resolve(null)
+
+    return new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+        },
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      )
+    })
+  }
+
+  async function continueToContact() {
     if (!form.fullName) {
       setError('Please enter your full name.')
       return
     }
+
+    const detectedLocation = await getCurrentLocation()
+    setLocation(detectedLocation)
     setError('')
     setStep('contact')
   }
@@ -64,7 +78,7 @@ export default function Register() {
 
     try {
       setLoading(true)
-      await registerStart({ mobile: fullPhone, email: form.email, name: form.fullName, location: null })
+      await registerStart({ mobile: fullPhone, email: form.email, name: form.fullName, location })
       nav(`/verify?mobile=${encodeURIComponent(fullPhone)}&mode=register`)
     } catch (e: any) {
       setError(e?.message || 'Unable to continue registration')
@@ -82,15 +96,6 @@ export default function Register() {
         {step === 'profile' ? (
           <>
             <input className="neo-control" placeholder="Full name" value={form.fullName} onChange={e => update('fullName', e.target.value)} />
-
-            <select className="neo-control" value={form.accountType} onChange={e => update('accountType', e.target.value)}>
-              <option value="INDIVIDUAL">Individual</option>
-              <option value="SHOP_OWNER">Business Owner</option>
-            </select>
-
-            {isShopOwner && (
-              <input className="neo-control" placeholder="Shop name" value={form.shopName} onChange={e => update('shopName', e.target.value)} />
-            )}
 
             <button className="neo-btn neo-btn-primary" onClick={continueToContact}>Continue</button>
           </>
