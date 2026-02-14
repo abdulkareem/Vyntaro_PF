@@ -1,4 +1,4 @@
-import { loginApi, registerStartApi, setPinApi, verifyRegistrationApi } from './api/authApi'
+import { loginApi, requestOtpApi, setPinApi } from './api/authApi'
 
 type LocationData = { lat: number; lon: number } | null
 
@@ -19,7 +19,6 @@ type PendingRegistration = {
   name?: string
   devOtp?: { phoneOtp: string; emailOtp: string }
 }
-
 
 type LoginResult =
   | { ok: true }
@@ -87,25 +86,18 @@ export function isAuthenticated(): boolean {
 }
 
 export async function registerStart(input: { mobile: string; email: string; name: string; location: LocationData }) {
-  const region = input.location ? `${input.location.lat.toFixed(4)},${input.location.lon.toFixed(4)}` : undefined
-  const res = await registerStartApi({
+  await requestOtpApi({
     phone: input.mobile,
-    email: input.email,
-    country: undefined,
-    region
+    email: input.email || undefined
   })
 
   setPendingRegistration({
     mobile: input.mobile,
     email: input.email,
-    name: input.name,
-    devOtp: res.devOtp
+    name: input.name
   })
 
-  return {
-    phoneCode: import.meta.env.DEV ? res.devOtp?.phoneOtp : undefined,
-    emailCode: import.meta.env.DEV ? res.devOtp?.emailOtp : undefined
-  }
+  return {}
 }
 
 export function resendRegistrationOTP(_mobile: string) {
@@ -116,11 +108,6 @@ export function resendRegistrationOTP(_mobile: string) {
     phoneCode: import.meta.env.DEV ? pending.devOtp?.phoneOtp : undefined,
     emailCode: import.meta.env.DEV ? pending.devOtp?.emailOtp : undefined
   }
-}
-
-export async function verifyRegistrationOTP(mobile: string, phoneCode: string, emailCode: string) {
-  await verifyRegistrationApi({ phone: mobile, phoneCode, emailCode })
-  return { ok: true as const }
 }
 
 export async function setPin(mobile: string, pin: string): Promise<PinSetResult> {
@@ -139,8 +126,18 @@ export async function loginWithPin(mobile: string, pin: string): Promise<LoginRe
     setSession(mapUser(res.user, pending?.name))
     return { ok: true as const }
   } catch {
-    return { ok: false as const, reason: "invalid" as const }
+    return { ok: false as const, reason: 'invalid' as const }
   }
+}
+
+export function completeOtpSession(input: { phone: string; name?: string; email?: string }) {
+  setSession({
+    id: input.phone,
+    mobile: input.phone,
+    email: input.email,
+    name: input.name,
+    trustedDevices: []
+  })
 }
 
 export function verifyDeviceOTP(_mobile: string, _code: string) {
