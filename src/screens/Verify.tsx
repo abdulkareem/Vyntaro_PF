@@ -1,68 +1,121 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { resendRegistrationOTP, verifyDeviceOTP, verifyRegistrationOTP } from '../services/auth'
+import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
+import { requestOtpApi, verifyOtpApi } from '../services/api/authApi'
+
+type VerifiedIdentity = {
+  userId?: string
+  phone: string
+  email?: string
+  profileExists?: boolean
+  identityExists?: boolean
+  action?: string
+  token?: string
+}
 
 export default function Verify() {
   const [sp] = useSearchParams()
   const nav = useNavigate()
-  const mobile = sp.get('mobile') || ''
-  const mode = sp.get('mode') || 'register'
-  const isDevice = mode === 'device'
-  const [phoneCode, setPhoneCode] = useState('')
-  const [emailCode, setEmailCode] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const phone = sp.get('phone') || sp.get('mobile') || ''
+  const mode = sp.get('mode') ?? 'register'
+
+  const [otp, setOtp] = useState('')
+  const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
+  const [showResetLink, setShowResetLink] = useState(false)
+  const [attempts, setAttempts] = useState(0)
+  const [cooldown, setCooldown] = useState(0)
 
   useEffect(() => {
-    if (mode === 'register') {
-      const codes = resendRegistrationOTP(mobile)
-      if ((codes as any).error === 'throttled') {
-        setMessage('Please wait before requesting OTP again')
-      } else if (import.meta.env.DEV && codes.phoneCode && codes.emailCode) {
-        setMessage(`Dev OTPs: phone ${codes.phoneCode}, email ${codes.emailCode}`)
-      } else {
-        setMessage('OTP sent to phone and email')
-      }
-    }
-  }, [mobile, mode])
+    if (!cooldown) return
+    const timer = setInterval(() => setCooldown(v => Math.max(0, v - 1)), 1000)
+    return () => clearInterval(timer)
+  }, [cooldown])
 
-  const canSubmit = useMemo(() => {
-    if (isDevice) return phoneCode.length === 6
-    return phoneCode.length === 6 && emailCode.length === 6
-  }, [isDevice, phoneCode, emailCode])
+  async function verifyOtp() {
+    if (!otp || !phone) return
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setMessage(null)
     try {
-      if (isDevice) {
-        const r = verifyDeviceOTP(mobile, phoneCode)
-        if (!r.ok) setError('Invalid or expired code')
-        else nav('/dashboard', { replace: true })
-      } else {
-        const r = verifyRegistrationOTP(mobile, phoneCode, emailCode)
-        if (!r.ok) setError('Invalid or expired codes')
-        else nav(`/set-pin?mobile=${encodeURIComponent(mobile)}`, { replace: true })
+      setError('')
+      setInfo('')
+      setShowResetLink(false)
+
+      const res = await verifyOtpApi({ phone, otp }) as VerifiedIdentity
+      localStorage.setItem('verified_identity', JSON.stringify(res))
+
+      if (res.token) document.cookie = `access_token=${res.token}; path=/`
+
+      if (res.identityExists && res.action === 'RESET_PIN') {
+        setInfo('This mobile/email is already registered. Set a new PIN to continue.')
+        setShowResetLink(true)
+        return
       }
-    } finally {
-      setLoading(false)
+
+      if (mode === 'reset-pin') {
+        nav(`/set-pin?mobile=${encodeURIComponent(phone)}&reset=1`, { replace: true })
+        return
+      }
+
+      if (!res.profileExists) {
+        nav(`/set-pin?mobile=${encodeURIComponent(phone)}`, { replace: true })
+        return
+      }
+
+      nav('/dashboard', { replace: true })
+    } catch (e: any) {
+      setAttempts(v => v + 1)
+      setError(e?.message || 'Invalid OTP')
+    }
+  }
+
+  async function resendOtp() {
+    if (!phone || cooldown > 0) return
+
+    try {
+      await requestOtpApi({ phone, resend: true })
+      setAttempts(0)
+      setCooldown(30)
+      setError('')
+      setInfo('A new OTP has been sent.')
+    } catch (e: any) {
+      setError(e?.message || 'Failed to resend OTP')
     }
   }
 
   return (
-    <div className="section" id="verify">
-      <h2>{isDevice ? 'Verify Device' : 'Verify Registration'}</h2>
-      <form onSubmit={submit} className="section-content" style={{ display: 'grid', gap: 12, maxWidth: 420 }}>
-        <div>Mobile: {mobile}</div>
-        <input placeholder={isDevice ? 'OTP (phone)' : 'OTP (phone)'} value={phoneCode} onChange={e => setPhoneCode(e.target.value)} required />
-        {!isDevice && <input placeholder="OTP (email)" value={emailCode} onChange={e => setEmailCode(e.target.value)} required />}
-        <button type="submit" disabled={!canSubmit || loading}>{loading ? 'Verifying…' : 'Verify'}</button>
-        {message && <div style={{ color: 'var(--muted)' }}>{message}</div>}
-        {error && <div style={{ color: '#ff6c6c' }}>{error}</div>}
-      </form>
-    </div>
+    <main className="neo-auth-screen">
+      <section className="neo-auth-card">
+        <VyntaroLogoAnimated size={72} />
+        <h2>Enter OTP</h2>
+        <p className="neo-auth-sub">Use the 6-digit code sent to your registered channels.</p>
+
+        <input
+          className="neo-control"
+          placeholder="6-digit OTP"
+          maxLength={6}
+          value={otp}
+          onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+        />
+
+        {error && <p className="error">{error}</p>}
+        {info && <p className="neo-auth-sub" style={{ color: '#f59e0b' }}>{info}</p>}
+
+        {showResetLink && (
+          <button className="neo-btn neo-btn-link" onClick={() => nav(`/forgot-pin?mobile=${encodeURIComponent(phone)}`)}>
+            Mobile/email already registered — Set new PIN
+          </button>
+        )}
+
+        <button className="neo-btn neo-btn-primary" onClick={verifyOtp}>
+          Verify & Continue
+        </button>
+
+        {attempts >= 2 && (
+          <button className="neo-btn neo-btn-link" disabled={cooldown > 0} onClick={resendOtp}>
+            {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend OTP'}
+          </button>
+        )}
+      </section>
+    </main>
   )
 }

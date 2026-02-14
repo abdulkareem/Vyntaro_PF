@@ -1,49 +1,130 @@
-import { useEffect, useState } from 'react'
-import { registerStart } from '../services/auth'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
+import { countryDialCodes } from '../lib/countryDialCodes'
+import { checkIdentityApi } from '../services/api/authApi'
+import { registerStart } from '../services/auth'
 
 export default function Register() {
-  const [name, setName] = useState('')
-  const [mobile, setMobile] = useState('')
-  const [email, setEmail] = useState('')
-  const [loc, setLoc] = useState<{ lat: number; lon: number } | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const nav = useNavigate()
+  const [step, setStep] = useState<'profile' | 'contact'>('profile')
+  const [form, setForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    accountType: 'INDIVIDUAL',
+    shopName: '',
+    countryCode: '+91'
+  })
+  const [identityStatus, setIdentityStatus] = useState<'unknown' | 'exists' | 'new'>('unknown')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  const fullPhone = `${form.countryCode}${form.phone}`
+  const isShopOwner = useMemo(() => form.accountType === 'SHOP_OWNER', [form.accountType])
 
   useEffect(() => {
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      p => setLoc({ lat: p.coords.latitude, lon: p.coords.longitude }),
-      () => {}
-    )
-  }, [])
+    if (!form.phone || form.phone.length < 8) return
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await checkIdentityApi({ phone: fullPhone, email: form.email || undefined })
+        setIdentityStatus(res.exists ? 'exists' : 'new')
+      } catch {
+        setIdentityStatus('unknown')
+      }
+    }, 600)
+
+    return () => clearTimeout(timer)
+  }, [form.phone, form.email, fullPhone])
+
+  function continueToContact() {
+    if (!form.fullName) {
+      setError('Please enter your full name.')
+      return
+    }
+    setError('')
+    setStep('contact')
+  }
+
+  async function continueToOtp() {
+    if (!form.phone) {
+      setError('Please enter your phone number.')
+      return
+    }
+
+    if (identityStatus === 'exists') {
+      nav(`/forgot-pin?mobile=${encodeURIComponent(fullPhone)}`)
+      return
+    }
+
     try {
-      await registerStart({ mobile, email, name, location: loc })
-      nav(`/verify?mobile=${encodeURIComponent(mobile)}&mode=register`)
-    } catch (err) {
-      setError('Failed to start registration')
+      setLoading(true)
+      await registerStart({ mobile: fullPhone, email: form.email, name: form.fullName, location: null })
+      nav(`/verify?mobile=${encodeURIComponent(fullPhone)}&mode=register`)
+    } catch (e: any) {
+      setError(e?.message || 'Unable to continue registration')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="section" id="register">
-      <h2>Register</h2>
-      <form onSubmit={submit} className="section-content" style={{ display: 'grid', gap: 12, maxWidth: 420 }}>
-        <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
-        <input placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 15))} inputMode="numeric" pattern="[0-9]{7,15}" required />
-        <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required type="email" />
-        <button type="submit" disabled={loading}>{loading ? 'Submitting…' : 'Submit'}</button>
-        {loc && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Location captured: {loc.lat.toFixed(3)}, {loc.lon.toFixed(3)}</div>}
-        {error && <div style={{ color: '#ff6c6c' }}>{error}</div>}
-      </form>
-    </div>
+    <main className="neo-auth-screen">
+      <section className="neo-auth-card">
+        <VyntaroLogoAnimated size={88} />
+        <h2>Create your Vyntaro account</h2>
+
+        {step === 'profile' ? (
+          <>
+            <input className="neo-control" placeholder="Full name" value={form.fullName} onChange={e => update('fullName', e.target.value)} />
+
+            <select className="neo-control" value={form.accountType} onChange={e => update('accountType', e.target.value)}>
+              <option value="INDIVIDUAL">Individual</option>
+              <option value="SHOP_OWNER">Business Owner</option>
+            </select>
+
+            {isShopOwner && (
+              <input className="neo-control" placeholder="Shop name" value={form.shopName} onChange={e => update('shopName', e.target.value)} />
+            )}
+
+            <button className="neo-btn neo-btn-primary" onClick={continueToContact}>Continue</button>
+          </>
+        ) : (
+          <>
+            <div className="neo-phone-wrap">
+              <select className="neo-control" value={form.countryCode} onChange={e => update('countryCode', e.target.value)}>
+                {countryDialCodes.map(country => (
+                  <option key={`${country.code}-${country.dial}`} value={country.dial}>
+                    {country.name} ({country.dial})
+                  </option>
+                ))}
+              </select>
+              <input
+                className="neo-control"
+                placeholder="Mobile number"
+                value={form.phone}
+                onChange={e => update('phone', e.target.value.replace(/\D/g, '').slice(0, 15))}
+              />
+            </div>
+
+            <input className="neo-control" placeholder="Email" value={form.email} onChange={e => update('email', e.target.value)} />
+
+            {identityStatus === 'exists' && <p className="neo-auth-sub" style={{ color: '#f59e0b' }}>Already registered — you can reset your PIN.</p>}
+            {identityStatus === 'new' && <p className="neo-auth-sub" style={{ color: '#22c55e' }}>New account — continue registration.</p>}
+
+            <button className="neo-btn neo-btn-primary" onClick={continueToOtp} disabled={loading}>
+              {loading ? 'Processing...' : 'Continue'}
+            </button>
+          </>
+        )}
+
+        {error && <p className="error">{error}</p>}
+      </section>
+    </main>
   )
 }

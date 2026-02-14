@@ -1,3 +1,39 @@
+import { loginApi, registerStartApi, setPinApi, verifyRegistrationApi } from './api/authApi'
+
+type LocationData = { lat: number; lon: number } | null
+
+export type AppUser = {
+  id: string
+  mobile: string
+  email?: string | null
+  verifiedAt?: string | null
+  name?: string
+  trustedDevices: string[]
+}
+
+type Session = { user: AppUser } | null
+
+type PendingRegistration = {
+  mobile: string
+  email?: string
+  name?: string
+  devOtp?: { phoneOtp: string; emailOtp: string }
+}
+
+
+type LoginResult =
+  | { ok: true }
+  | { ok: false; reason: 'invalid' }
+  | { ok: false; reason: 'device_unverified'; needsOTP?: string }
+
+type PinResetRequestResult = { ok: true; code?: string } | { ok: false; reason: 'not_found' | 'throttled' | 'not_supported'; message?: string }
+type PinResetVerifyResult = { ok: true } | { ok: false; reason: 'expired' | 'invalid' | 'not_supported'; message?: string }
+type PinSetResult = { ok: true } | { ok: false; reason?: 'not_supported'; message?: string }
+
+const SESSION_KEY = 'session'
+const PENDING_REG_KEY = 'pending_registration'
+const PIN_RESET_ERR = 'PIN reset is handled by backend endpoints that are not yet available in this frontend.'
+
 const storage = {
   read<T>(k: string, d: T): T {
     const v = localStorage.getItem(k)
@@ -11,247 +47,122 @@ const storage = {
   }
 }
 
-type LocationData = { lat: number; lon: number } | null
-type User = {
-  mobile: string
-  email: string
-  name: string
-  location: LocationData
-  pinSalt?: string
-  pinHash?: string
-  verified: boolean
-  trustedDevices: string[]
+function setSession(user: AppUser) {
+  storage.write<Session>(SESSION_KEY, { user })
 }
 
-type Users = Record<string, User>
+function getPendingRegistration() {
+  return storage.read<PendingRegistration | null>(PENDING_REG_KEY, null)
+}
 
-function deviceId(): string {
-  let id = localStorage.getItem('device_id')
-  if (!id) {
-    const a = new Uint8Array(16)
-    crypto.getRandomValues(a)
-    id = Array.from(a).map(x => x.toString(16).padStart(2, '0')).join('')
-    localStorage.setItem('device_id', id)
+function setPendingRegistration(v: PendingRegistration) {
+  storage.write(PENDING_REG_KEY, v)
+}
+
+function clearPendingRegistration() {
+  storage.del(PENDING_REG_KEY)
+}
+
+function mapUser(input: { id: string; phone: string; email?: string | null; verifiedAt?: string | null }, name?: string): AppUser {
+  return {
+    id: input.id,
+    mobile: input.phone,
+    email: input.email,
+    verifiedAt: input.verifiedAt,
+    name,
+    trustedDevices: []
   }
-  return id
 }
 
-async function sha256Hex(data: string): Promise<string> {
-  const enc = new TextEncoder().encode(data)
-  const buf = await crypto.subtle.digest('SHA-256', enc)
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-function users(): Users {
-  return storage.read<Users>('users', {})
-}
-function saveUsers(u: Users) {
-  storage.write('users', u)
-}
-
-type OTPPayload = { code: string; exp: number }
-function genCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
-}
-function otpKey(mobile: string, channel: 'phone' | 'email' | 'device') {
-  return `otp:${mobile}:${channel}`
-}
-const RL_WINDOW_MS = 60_000
-const RL_MAX_IN_WINDOW = 3
-function rlKey(mobile: string, channel: 'phone' | 'email' | 'device') {
-  return `otp_rl:${mobile}:${channel}`
-}
-function canSendOTP(mobile: string, channel: 'phone' | 'email' | 'device') {
-  const now = Date.now()
-  const history = storage.read<number[]>(rlKey(mobile, channel), []).filter(t => now - t < RL_WINDOW_MS)
-  return { allowed: history.length < RL_MAX_IN_WINDOW, history }
-}
-function recordSend(mobile: string, channel: 'phone' | 'email' | 'device', prev: number[]) {
-  const now = Date.now()
-  const hist = [...prev.filter(t => now - t < RL_WINDOW_MS), now]
-  storage.write(rlKey(mobile, channel), hist)
-}
-function createOTP(mobile: string, channel: 'phone' | 'email' | 'device') {
-  const check = canSendOTP(mobile, channel)
-  if (!check.allowed) {
-    const now = Date.now()
-    const next = RL_WINDOW_MS - (now - check.history[0])
-    throw Object.assign(new Error('throttled'), { next })
-  }
-  const payload: OTPPayload = { code: genCode(), exp: Date.now() + 5 * 60_000 }
-  storage.write(otpKey(mobile, channel), payload)
-  recordSend(mobile, channel, check.history)
-  return payload
-}
-function readOTP(mobile: string, channel: 'phone' | 'email' | 'device'): OTPPayload | null {
-  return storage.read<OTPPayload | null>(otpKey(mobile, channel), null)
-}
-function clearOTP(mobile: string, channel: 'phone' | 'email' | 'device') {
-  storage.del(otpKey(mobile, channel))
-}
-
-type Session = { mobile: string } | null
-function setSession(mobile: string) {
-  storage.write<Session>('session', { mobile })
-}
 export function getSession(): Session {
-  return storage.read<Session>('session', null)
+  return storage.read<Session>(SESSION_KEY, null)
 }
+
 export function logout() {
-  storage.del('session')
+  storage.del(SESSION_KEY)
 }
+
 export function isAuthenticated(): boolean {
-  const s = getSession()
-  return !!s && !!users()[s.mobile]?.pinHash
+  return !!getSession()?.user?.id
 }
 
 export async function registerStart(input: { mobile: string; email: string; name: string; location: LocationData }) {
-  const u = users()
-  const exists = u[input.mobile]
-  u[input.mobile] = {
+  const region = input.location ? `${input.location.lat.toFixed(4)},${input.location.lon.toFixed(4)}` : undefined
+  const res = await registerStartApi({
+    phone: input.mobile,
+    email: input.email,
+    country: undefined,
+    region
+  })
+
+  setPendingRegistration({
     mobile: input.mobile,
     email: input.email,
     name: input.name,
-    location: input.location,
-    verified: false,
-    trustedDevices: exists?.trustedDevices ?? []
+    devOtp: res.devOtp
+  })
+
+  return {
+    phoneCode: import.meta.env.DEV ? res.devOtp?.phoneOtp : undefined,
+    emailCode: import.meta.env.DEV ? res.devOtp?.emailOtp : undefined
   }
-  saveUsers(u)
-  const phoneOtp = createOTP(input.mobile, 'phone')
-  const emailOtp = createOTP(input.mobile, 'email')
-  return { phoneCode: import.meta.env.DEV ? phoneOtp.code : undefined, emailCode: import.meta.env.DEV ? emailOtp.code : undefined }
 }
 
-export function resendRegistrationOTP(mobile: string) {
+export function resendRegistrationOTP(_mobile: string) {
+  const pending = getPendingRegistration()
+  if (!pending) return { error: 'missing' as const }
+
+  return {
+    phoneCode: import.meta.env.DEV ? pending.devOtp?.phoneOtp : undefined,
+    emailCode: import.meta.env.DEV ? pending.devOtp?.emailOtp : undefined
+  }
+}
+
+export async function verifyRegistrationOTP(mobile: string, phoneCode: string, emailCode: string) {
+  await verifyRegistrationApi({ phone: mobile, phoneCode, emailCode })
+  return { ok: true as const }
+}
+
+export async function setPin(mobile: string, pin: string): Promise<PinSetResult> {
+  await setPinApi({ phone: mobile, pin })
+  const login = await loginApi({ phone: mobile, pin })
+  const pending = getPendingRegistration()
+  setSession(mapUser(login.user, pending?.name))
+  clearPendingRegistration()
+  return { ok: true as const }
+}
+
+export async function loginWithPin(mobile: string, pin: string): Promise<LoginResult> {
   try {
-    const phoneOtp = createOTP(mobile, 'phone')
-    const emailOtp = createOTP(mobile, 'email')
-    return { phoneCode: import.meta.env.DEV ? phoneOtp.code : undefined, emailCode: import.meta.env.DEV ? emailOtp.code : undefined }
-  } catch (e: any) {
-    return { error: 'throttled', next: e?.next as number | undefined }
+    const res = await loginApi({ phone: mobile, pin })
+    const pending = getPendingRegistration()
+    setSession(mapUser(res.user, pending?.name))
+    return { ok: true as const }
+  } catch {
+    return { ok: false as const, reason: "invalid" as const }
   }
 }
 
-export function verifyRegistrationOTP(mobile: string, phoneCode: string, emailCode: string) {
-  const p = readOTP(mobile, 'phone')
-  const e = readOTP(mobile, 'email')
-  if (!p || !e) return { ok: false, reason: 'expired' as const }
-  if (Date.now() > p.exp || Date.now() > e.exp) return { ok: false, reason: 'expired' as const }
-  if (p.code !== phoneCode || e.code !== emailCode) return { ok: false, reason: 'invalid' as const }
-  clearOTP(mobile, 'phone')
-  clearOTP(mobile, 'email')
-  const u = users()
-  if (!u[mobile]) return { ok: false, reason: 'missing' as const }
-  u[mobile].verified = true
-  saveUsers(u)
-  return { ok: true as const }
+export function verifyDeviceOTP(_mobile: string, _code: string) {
+  return { ok: false as const, reason: 'not_supported' as const }
 }
 
-export async function setPin(mobile: string, pin: string) {
-  const u = users()
-  const user = u[mobile]
-  if (!user || !user.verified) return { ok: false }
-  const saltA = new Uint8Array(16)
-  crypto.getRandomValues(saltA)
-  const salt = Array.from(saltA).map(x => x.toString(16).padStart(2, '0')).join('')
-  const hash = await sha256Hex(pin + ':' + salt)
-  user.pinSalt = salt
-  user.pinHash = hash
-  const did = deviceId()
-  if (!user.trustedDevices.includes(did)) user.trustedDevices.push(did)
-  saveUsers(u)
-  setSession(mobile)
-  return { ok: true }
+export function currentUser(): AppUser | null {
+  return getSession()?.user ?? null
 }
 
-export async function loginWithPin(mobile: string, pin: string) {
-  const u = users()
-  const user = u[mobile]
-  if (!user || !user.pinSalt || !user.pinHash) return { ok: false, reason: 'not_found' as const }
-  const hash = await sha256Hex(pin + ':' + user.pinSalt)
-  if (hash !== user.pinHash) return { ok: false, reason: 'invalid' as const }
-  const did = deviceId()
-  if (!user.trustedDevices.includes(did)) {
-    let otp
-    try {
-      otp = createOTP(mobile, 'device')
-    } catch {
-      otp = { code: '******' }
-    }
-    return { ok: false, reason: 'device_unverified' as const, needsOTP: import.meta.env.DEV ? otp.code : undefined }
-  }
-  setSession(mobile)
-  return { ok: true as const }
+export function startPinReset(_mobile: string): PinResetRequestResult {
+  return { ok: false as const, reason: 'not_supported' as const, message: PIN_RESET_ERR }
 }
 
-export function verifyDeviceOTP(mobile: string, code: string) {
-  const otp = readOTP(mobile, 'device')
-  if (!otp) return { ok: false, reason: 'expired' as const }
-  if (Date.now() > otp.exp) return { ok: false, reason: 'expired' as const }
-  if (otp.code !== code) return { ok: false, reason: 'invalid' as const }
-  clearOTP(mobile, 'device')
-  const u = users()
-  const user = u[mobile]
-  if (!user) return { ok: false, reason: 'missing' as const }
-  const did = deviceId()
-  if (!user.trustedDevices.includes(did)) user.trustedDevices.push(did)
-  saveUsers(u)
-  setSession(mobile)
-  return { ok: true as const }
+export function verifyPinReset(_mobile: string, _code: string): PinResetVerifyResult {
+  return { ok: false as const, reason: 'not_supported' as const, message: PIN_RESET_ERR }
 }
 
-export function currentUser(): User | null {
-  const s = getSession()
-  if (!s) return null
-  return users()[s.mobile] ?? null
+export async function setNewPin(_mobile: string, _pin: string): Promise<PinSetResult> {
+  return { ok: false as const, reason: 'not_supported' as const, message: PIN_RESET_ERR }
 }
 
-export function startPinReset(mobile: string) {
-  const u = users()
-  if (!u[mobile]) return { ok: false as const, reason: 'not_found' as const }
-  try {
-    const otp = createOTP(mobile, 'phone')
-    return { ok: true as const, code: import.meta.env.DEV ? otp.code : undefined }
-  } catch (e: any) {
-    return { ok: false as const, reason: 'throttled' as const }
-  }
-}
-export function verifyPinReset(mobile: string, code: string) {
-  const otp = readOTP(mobile, 'phone')
-  if (!otp) return { ok: false as const, reason: 'expired' as const }
-  if (Date.now() > otp.exp) return { ok: false as const, reason: 'expired' as const }
-  if (otp.code !== code) return { ok: false as const, reason: 'invalid' as const }
-  clearOTP(mobile, 'phone')
-  storage.write(`pin_reset:${mobile}`, true)
-  return { ok: true as const }
-}
-export async function setNewPin(mobile: string, pin: string) {
-  const allowed = storage.read<boolean>(`pin_reset:${mobile}`, false)
-  if (!allowed) return { ok: false as const }
-  const u = users()
-  const user = u[mobile]
-  if (!user) return { ok: false as const }
-  const saltA = new Uint8Array(16); crypto.getRandomValues(saltA)
-  const salt = Array.from(saltA).map(x => x.toString(16).padStart(2, '0')).join('')
-  const hash = await sha256Hex(pin + ':' + salt)
-  user.pinSalt = salt; user.pinHash = hash
-  const did = deviceId()
-  if (!user.trustedDevices.includes(did)) user.trustedDevices.push(did)
-  saveUsers(u)
-  storage.del(`pin_reset:${mobile}`)
-  setSession(mobile)
-  return { ok: true as const }
-}
-export async function updatePin(mobile: string, oldPin: string, newPin: string) {
-  const u = users()
-  const user = u[mobile]
-  if (!user || !user.pinSalt || !user.pinHash) return { ok: false as const, reason: 'not_found' as const }
-  const oldHash = await sha256Hex(oldPin + ':' + user.pinSalt)
-  if (oldHash !== user.pinHash) return { ok: false as const, reason: 'invalid' as const }
-  const saltA = new Uint8Array(16); crypto.getRandomValues(saltA)
-  const salt = Array.from(saltA).map(x => x.toString(16).padStart(2, '0')).join('')
-  const hash = await sha256Hex(newPin + ':' + salt)
-  user.pinSalt = salt; user.pinHash = hash
-  saveUsers(u)
-  return { ok: true as const }
+export async function updatePin(_mobile: string, _oldPin: string, _newPin: string): Promise<PinSetResult> {
+  return { ok: false as const, reason: 'not_supported' as const, message: 'Change PIN backend endpoint is not yet wired in this frontend.' }
 }
