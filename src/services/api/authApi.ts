@@ -15,7 +15,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   })
 
   const data = await res.json()
-  if (!res.ok) throw new Error(data?.error ? JSON.stringify(data.error) : 'Request failed')
+  if (!res.ok) throw new Error(data?.error ? JSON.stringify(data.error) : data?.message || 'Request failed')
   return data as T
 }
 
@@ -33,4 +33,16 @@ export function setPinApi(input: { phone: string; pin: string }) {
 
 export function loginApi(input: { phone: string; pin: string }) {
   return post<{ ok: true; user: { id: string; phone: string; email?: string | null; verifiedAt?: string | null } }>('/api/auth/login', input)
+}
+
+export function checkIdentityApi(input: { phone: string; email?: string }) {
+  return post<{ exists: boolean }>('/api/auth/check-identity', input)
+}
+
+export function requestOtpApi(input: { phone: string; email?: string; resend?: boolean }) {
+  return post<{ ok: true }>('/api/auth/otp', input)
+}
+
+export function verifyOtpApi(input: { phone: string; otp: string }) {
+  return post<{ ok?: boolean; profileExists?: boolean; identityExists?: boolean; action?: string; token?: string }>('/api/auth/verify', input)
 }
