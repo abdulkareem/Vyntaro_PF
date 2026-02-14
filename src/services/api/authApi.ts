@@ -15,8 +15,25 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   })
 
   const raw = await res.text()
-  const data = raw ? JSON.parse(raw) : null
-  if (!res.ok) throw new Error(data?.error ? JSON.stringify(data.error) : data?.message || 'Request failed')
+  let data: unknown = null
+
+  if (raw) {
+    try {
+      data = JSON.parse(raw)
+    } catch {
+      data = raw
+    }
+  }
+
+  if (!res.ok) {
+    if (typeof data === 'object' && data) {
+      const payload = data as { error?: unknown; message?: string }
+      throw new Error(payload.error ? JSON.stringify(payload.error) : payload.message || 'Request failed')
+    }
+
+    throw new Error(typeof data === 'string' && data.trim() ? data : 'Request failed')
+  }
+
   return data as T
 }
 
