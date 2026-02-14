@@ -57,7 +57,12 @@ export function registerStartApi(input: RegisterStartInput) {
 export function verifyRegistrationApi(input: { phone: string; otp: string }) {
   return post<{
     ok: true
-    user?: { id: string; phone: string; email?: string | null; verifiedAt?: string | null }
+    user?: {
+      id: string
+      phone: string
+      email?: string | null
+      verifiedAt?: string | null
+    }
     next?: string
   }>('/api/auth/register/verify', input)
 }
@@ -81,4 +86,30 @@ export function loginApi(input: { phone: string; pin: string }) {
     }
     next?: string
   }>('/api/auth/login', input)
+}
+
+/* =====================================================
+   COMPATIBILITY LAYER (for existing screens)
+   ===================================================== */
+
+/**
+ * Identity check is not implemented on backend yet.
+ * Frontend uses it only for UX hints.
+ */
+export async function checkIdentityApi(_: { phone: string; email?: string }) {
+  return { exists: false }
+}
+
+/**
+ * OTP resend not implemented yet.
+ */
+export async function requestOtpApi(_: { phone: string; email?: string; resend?: boolean }) {
+  return { ok: true }
+}
+
+/**
+ * Legacy verifyOtp API → map to register verification
+ */
+export async function verifyOtpApi(input: { phone: string; otp: string }) {
+  return verifyRegistrationApi(input)
 }
