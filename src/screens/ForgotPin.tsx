@@ -22,7 +22,7 @@ export default function ForgotPin() {
       else setMessage('OTP sent to your phone')
       setStep('verify')
     } else {
-      setError(r.reason === 'not_found' ? 'User not found' : 'Please wait before requesting again')
+      setError(r.reason === 'not_supported' ? (r.message ?? 'This flow is not available yet.') : (r.reason === 'not_found' ? 'User not found' : 'Please wait before requesting again'))
     }
   }
   const verify = () => {
@@ -30,7 +30,7 @@ export default function ForgotPin() {
     const r = verifyPinReset(mobile, code)
     setLoading(false)
     if (r.ok) setStep('set')
-    else setError('Invalid or expired code')
+    else setError(r.reason === 'not_supported' ? (r.message ?? 'This flow is not available yet.') : 'Invalid or expired code')
   }
   const save = async () => {
     if (p1 !== p2) { setError('PINs do not match'); return }
@@ -38,7 +38,7 @@ export default function ForgotPin() {
     const r = await setNewPin(mobile, p1)
     setLoading(false)
     if (r.ok) nav('/dashboard', { replace: true })
-    else setError('Failed to reset PIN')
+    else setError(r.reason === 'not_supported' ? (r.message ?? 'This flow is not available yet.') : 'Failed to reset PIN')
   }
 
   return (
