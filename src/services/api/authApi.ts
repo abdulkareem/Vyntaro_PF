@@ -14,7 +14,8 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body)
   })
 
-  const data = await res.json()
+  const raw = await res.text()
+  const data = raw ? JSON.parse(raw) : null
   if (!res.ok) throw new Error(data?.error ? JSON.stringify(data.error) : data?.message || 'Request failed')
   return data as T
 }
