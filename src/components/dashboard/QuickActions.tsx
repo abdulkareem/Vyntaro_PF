@@ -1,18 +1,20 @@
+import { Link } from 'react-router-dom'
+
 const actions = [
-  { name: 'Send', icon: '➡️' },
-  { name: 'Request', icon: '📥' },
-  { name: 'Add Funds', icon: '💰' },
-  { name: 'More', icon: '⋯' }
+  { name: 'Send', icon: '➡️', to: '/dashboard/transactions?action=send' },
+  { name: 'Request', icon: '📥', to: '/dashboard/transactions?action=request' },
+  { name: 'Add Funds', icon: '💰', to: '/dashboard/budgets?action=add-funds' },
+  { name: 'More', icon: '⋯', to: '/dashboard/profile?action=more' }
 ]
 
 export default function QuickActions() {
   return (
     <div className="quick-actions-grid fade-in-up">
       {actions.map(action => (
-        <button key={action.name} className="quick-action-btn" type="button">
+        <Link key={action.name} className="quick-action-btn action-link" to={action.to}>
           <span className="quick-action-icon">{action.icon}</span>
           <span>{action.name}</span>
-        </button>
+        </Link>
       ))}
     </div>
   )

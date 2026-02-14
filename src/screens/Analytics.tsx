@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import DashboardTabs from '../components/dashboard/DashboardTabs'
 import { fetchDashboard } from '../services/api/dashboardApi'
 
 type Point = { name: string; income: number; expense: number }
@@ -10,10 +11,11 @@ export default function Analytics() {
     fetchDashboard().then(data => setPoints(data.analytics))
   }, [])
 
-  const maxValue = points.reduce((max, item) => Math.max(max, item.income, item.expense), 0)
+  const maxValue = points.reduce((max, item) => Math.max(max, item.income, item.expense), 1)
 
   return (
     <main className="dashboard-page">
+      <DashboardTabs />
       <h2 className="screen-title">Analytics</h2>
       <section className="dashboard-card fade-in-up">
         <p className="dashboard-subtitle">Income vs Expense Trend</p>

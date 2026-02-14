@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import DashboardTabs from '../components/dashboard/DashboardTabs'
 import { BudgetItem, fetchDashboard } from '../services/api/dashboardApi'
 
 export default function Budgets() {
@@ -10,6 +11,7 @@ export default function Budgets() {
 
   return (
     <main className="dashboard-page">
+      <DashboardTabs />
       <h2 className="screen-title">Budgets</h2>
       <div className="budgets-grid">
         {budgets.map(budget => {

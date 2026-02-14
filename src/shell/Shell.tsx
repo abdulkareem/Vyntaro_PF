@@ -1,15 +1,18 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { currentUser, logout } from '../services/auth'
 import MobileNav from '../components/navigation/MobileNav'
 
 export default function Shell() {
   const u = currentUser()
   const nav = useNavigate()
+  const location = useLocation()
 
   const doLogout = () => {
     logout()
     nav('/login', { replace: true })
   }
+
+  const onDashboardRoute = location.pathname.startsWith('/dashboard')
 
   return (
     <div className="app">
@@ -18,11 +21,7 @@ export default function Shell() {
         <nav className="nav">
           {!u && <Link to="/login">Login</Link>}
           {!u && <Link to="/register">Register</Link>}
-          {u && <Link to="/dashboard">Overview</Link>}
-          {u && <Link to="/dashboard/transactions">Transactions</Link>}
-          {u && <Link to="/dashboard/budgets">Budgets</Link>}
-          {u && <Link to="/dashboard/analytics">Analytics</Link>}
-          {u && <Link to="/dashboard/profile">Profile</Link>}
+          {u && !onDashboardRoute && <Link to="/dashboard">Dashboard</Link>}
           {u && <button onClick={doLogout} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}>Logout</button>}
         </nav>
       </header>

@@ -1,3 +1,4 @@
+import DashboardTabs from '../components/dashboard/DashboardTabs'
 import { currentUser } from '../services/auth'
 
 export default function Profile() {
@@ -5,6 +6,7 @@ export default function Profile() {
 
   return (
     <main className="dashboard-page">
+      <DashboardTabs />
       <h2 className="screen-title">Profile</h2>
       <article className="dashboard-card fade-in-up">
         <p className="dashboard-subtitle">Name</p>
