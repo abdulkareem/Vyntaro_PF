@@ -38,7 +38,7 @@ export default function Register() {
       <h2>Register</h2>
       <form onSubmit={submit} className="section-content" style={{ display: 'grid', gap: 12, maxWidth: 420 }}>
         <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
-        <input placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 15))} inputMode="numeric" pattern="\\d{7,15}" required />
+        <input placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 15))} inputMode="numeric" pattern="[0-9]{7,15}" required />
         <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required type="email" />
         <button type="submit" disabled={loading}>{loading ? 'Submitting…' : 'Submit'}</button>
         {loc && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Location captured: {loc.lat.toFixed(3)}, {loc.lon.toFixed(3)}</div>}
