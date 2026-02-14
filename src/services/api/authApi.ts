@@ -62,6 +62,7 @@ export function verifyRegistrationApi(input: { phone: string; otp: string }) {
       phone: string
       email?: string | null
       verifiedAt?: string | null
+      avatarUrl?: string | null
     }
     next?: string
   }>('/api/auth/register/verify', input)
@@ -83,6 +84,7 @@ export function loginApi(input: { phone: string; pin: string }) {
       phone: string
       email?: string | null
       verifiedAt?: string | null
+      avatarUrl?: string | null
     }
     next?: string
   }>('/api/auth/login', input)

@@ -8,6 +8,7 @@ export type AppUser = {
   email?: string | null
   verifiedAt?: string | null
   name?: string
+  avatarUrl?: string | null
   trustedDevices: string[]
 }
 
@@ -62,13 +63,14 @@ function clearPendingRegistration() {
   storage.del(PENDING_REG_KEY)
 }
 
-function mapUser(input: { id: string; phone: string; email?: string | null; verifiedAt?: string | null }, name?: string): AppUser {
+function mapUser(input: { id: string; phone: string; email?: string | null; verifiedAt?: string | null; avatarUrl?: string | null }, name?: string): AppUser {
   return {
     id: input.id,
     mobile: input.phone,
     email: input.email,
     verifiedAt: input.verifiedAt,
     name,
+    avatarUrl: input.avatarUrl,
     trustedDevices: []
   }
 }
@@ -137,6 +139,7 @@ export function completeOtpSession(input: { phone: string; name?: string; email?
     mobile: input.phone,
     email: input.email,
     name: input.name,
+    avatarUrl: null,
     trustedDevices: []
   })
 }
