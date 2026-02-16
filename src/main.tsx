@@ -10,10 +10,23 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>
 )
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    if (import.meta.env.PROD) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {})
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js')
+
+      registration.addEventListener('updatefound', () => {
+        const nextWorker = registration.installing
+        if (!nextWorker) return
+
+        nextWorker.addEventListener('statechange', () => {
+          if (nextWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            window.location.reload()
+          }
+        })
+      })
+    } catch {
+      // ignore SW registration failures
     }
   })
 }

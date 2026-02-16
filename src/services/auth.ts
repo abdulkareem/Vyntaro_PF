@@ -15,6 +15,7 @@ export type AppUser = {
 type Session = { user: AppUser } | null
 
 type PendingRegistration = {
+  userId?: string
   mobile: string
   email?: string
   name?: string
@@ -22,7 +23,7 @@ type PendingRegistration = {
 }
 
 type LoginResult =
-  | { ok: true }
+  | { ok: true; user: AppUser }
   | { ok: false; reason: 'invalid' }
   | { ok: false; reason: 'device_unverified'; needsOTP?: string }
 
@@ -47,8 +48,13 @@ const storage = {
   }
 }
 
+function notifyAuthChanged() {
+  window.dispatchEvent(new Event('auth-changed'))
+}
+
 function setSession(user: AppUser) {
   storage.write<Session>(SESSION_KEY, { user })
+  notifyAuthChanged()
 }
 
 function getPendingRegistration() {
@@ -81,6 +87,7 @@ export function getSession(): Session {
 
 export function logout() {
   storage.del(SESSION_KEY)
+  notifyAuthChanged()
 }
 
 export function isAuthenticated(): boolean {
@@ -94,6 +101,7 @@ export async function registerStart(input: { mobile: string; email: string; name
   })
 
   setPendingRegistration({
+    userId: response.userId,
     mobile: input.mobile,
     email: input.email,
     name: input.name,
@@ -114,9 +122,14 @@ export function resendRegistrationOTP(_mobile: string) {
 }
 
 export async function setPin(mobile: string, pin: string): Promise<PinSetResult> {
-  await setPinApi({ phone: mobile, pin })
-  const login = await loginApi({ phone: mobile, pin })
   const pending = getPendingRegistration()
+  await setPinApi({
+    phone: mobile,
+    pin,
+    userId: pending?.userId,
+    email: pending?.email
+  })
+  const login = await loginApi({ phone: mobile, pin })
   setSession(mapUser(login.user, pending?.name))
   clearPendingRegistration()
   return { ok: true as const }
@@ -126,16 +139,17 @@ export async function loginWithPin(mobile: string, pin: string): Promise<LoginRe
   try {
     const res = await loginApi({ phone: mobile, pin })
     const pending = getPendingRegistration()
-    setSession(mapUser(res.user, pending?.name))
-    return { ok: true as const }
+    const user = mapUser(res.user, pending?.name)
+    setSession(user)
+    return { ok: true as const, user }
   } catch {
     return { ok: false as const, reason: 'invalid' as const }
   }
 }
 
-export function completeOtpSession(input: { phone: string; name?: string; email?: string }) {
+export function completeOtpSession(input: { id?: string; phone: string; name?: string; email?: string }) {
   setSession({
-    id: input.phone,
+    id: input.id || input.phone,
     mobile: input.phone,
     email: input.email,
     name: input.name,

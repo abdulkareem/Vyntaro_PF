@@ -49,6 +49,10 @@ export default function Verify() {
 
       localStorage.setItem('verified_identity', JSON.stringify(verified))
 
+      localStorage.setItem('auth_user_mobile', result.user.phone)
+      localStorage.setItem('auth_user_id', result.user.id)
+      localStorage.setItem('auth_user_email', result.user.email || '')
+
       if (mode === 'register') {
         // complete local session for UI continuity
         const pendingRegistration = localStorage.getItem('pending_registration')
@@ -66,6 +70,7 @@ export default function Verify() {
         }
 
         completeOtpSession({
+          id: result.user.id,
           phone: verified.phone,
           name: pendingName,
           email: pendingEmail
