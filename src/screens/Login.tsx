@@ -81,6 +81,9 @@ export default function Login() {
       const res = await loginWithPin(fullPhone, pinValue)
       if (res.ok) {
         localStorage.setItem('auth_phone', fullPhone)
+        localStorage.setItem('auth_user_mobile', res.user.mobile)
+        localStorage.setItem('auth_user_id', res.user.id)
+        localStorage.setItem('auth_user_email', res.user.email || '')
         localStorage.setItem(ATTEMPT_KEY, String(MAX_ATTEMPTS))
         nav('/dashboard', { replace: true })
         return
@@ -139,7 +142,10 @@ export default function Login() {
                 inputMode="numeric"
                 maxLength={1}
                 onChange={e => handlePinChange(index, e.target.value)}
-                onKeyDown={e => handlePinKeyDown(index, e)}
+                onKeyDown={e => {
+                  handlePinKeyDown(index, e)
+                  if (e.key === 'Enter') void handleSubmit()
+                }}
                 className="neo-pin-input"
               />
             ))}
