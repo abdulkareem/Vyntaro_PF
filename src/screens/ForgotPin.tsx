@@ -1,9 +1,15 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import { setNewPin, startPinReset, verifyPinReset } from '../services/auth'
-import { useNavigate } from 'react-router-dom'
+
+type ResetMode = 'mobile' | 'email'
 
 export default function ForgotPin() {
-  const [mobile, setMobile] = useState('')
+  const [sp] = useSearchParams()
+  const nav = useNavigate()
+  const [mode, setMode] = useState<ResetMode>('mobile')
+  const [identifier, setIdentifier] = useState(sp.get('mobile') ?? '')
   const [step, setStep] = useState<'request' | 'verify' | 'set'>('request')
   const [code, setCode] = useState('')
   const [p1, setP1] = useState('')
@@ -11,63 +17,102 @@ export default function ForgotPin() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const nav = useNavigate()
 
-  const request = () => {
-    setLoading(true); setError(null)
-    const r = startPinReset(mobile)
+  const payload = useMemo(() => (mode === 'mobile' ? { mobile: identifier } : { email: identifier }), [identifier, mode])
+
+  const request = async () => {
+    if (!identifier.trim()) {
+      setError(`Enter your ${mode}.`)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    const r = await startPinReset(payload)
     setLoading(false)
+
     if (r.ok) {
       if (import.meta.env.DEV && r.code) setMessage(`Dev OTP: ${r.code}`)
-      else setMessage('OTP sent to your phone')
+      else setMessage(`OTP sent to your ${mode}`)
       setStep('verify')
-    } else {
-      setError(r.reason === 'not_supported' ? (r.message ?? 'This flow is not available yet.') : (r.reason === 'not_found' ? 'User not found' : 'Please wait before requesting again'))
+      return
     }
+
+    setError(r.message ?? 'Unable to send OTP.')
   }
-  const verify = () => {
-    setLoading(true); setError(null)
-    const r = verifyPinReset(mobile, code)
+
+  const verify = async () => {
+    setLoading(true)
+    setError(null)
+    const r = await verifyPinReset(payload, code)
     setLoading(false)
+
     if (r.ok) setStep('set')
-    else setError(r.reason === 'not_supported' ? (r.message ?? 'This flow is not available yet.') : 'Invalid or expired code')
+    else setError(r.message ?? 'Invalid or expired code')
   }
+
   const save = async () => {
-    if (p1 !== p2) { setError('PINs do not match'); return }
-    setLoading(true); setError(null)
-    const r = await setNewPin(mobile, p1)
+    if (p1 !== p2) {
+      setError('PINs do not match')
+      return
+    }
+
+    if (!/^\d{4}$/.test(p1)) {
+      setError('PIN must be exactly 4 digits.')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    const r = await setNewPin(payload, p1)
     setLoading(false)
-    if (r.ok) nav('/dashboard', { replace: true })
-    else setError(r.reason === 'not_supported' ? (r.message ?? 'This flow is not available yet.') : 'Failed to reset PIN')
+
+    if (r.ok) nav('/login', { replace: true })
+    else setError(r.message ?? 'Failed to reset PIN')
   }
 
   return (
-    <div className="section" id="forgot-pin">
-      <h2>Forgot PIN</h2>
-      <div className="section-content" style={{ display: 'grid', gap: 12, maxWidth: 420 }}>
+    <main className="neo-auth-screen">
+      <section className="neo-auth-card">
+        <VyntaroLogoAnimated size={76} />
+        <h2>Reset PIN</h2>
+        <p className="neo-auth-sub">Reset your PIN using OTP verification with mobile or email.</p>
+
         {step === 'request' && (
           <>
-            <input placeholder="Mobile" value={mobile} onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 15))} inputMode="numeric" pattern="[0-9]{7,15}" />
-            <button onClick={request} disabled={loading}>{loading ? 'Sending…' : 'Send OTP'}</button>
+            <div className="neo-chip-row">
+              <button className={`neo-chip ${mode === 'mobile' ? 'active' : ''}`} onClick={() => { setMode('mobile'); setIdentifier('') }} type="button">Mobile</button>
+              <button className={`neo-chip ${mode === 'email' ? 'active' : ''}`} onClick={() => { setMode('email'); setIdentifier('') }} type="button">Email</button>
+            </div>
+            <input
+              className="neo-control"
+              placeholder={mode === 'mobile' ? 'Registered mobile' : 'Registered email'}
+              value={identifier}
+              onChange={e => setIdentifier(mode === 'mobile' ? e.target.value.replace(/\D/g, '').slice(0, 15) : e.target.value)}
+            />
+            <button className="neo-btn neo-btn-primary" onClick={request} disabled={loading}>{loading ? 'Sending…' : 'Send OTP'}</button>
           </>
         )}
+
         {step === 'verify' && (
           <>
-            <div>Mobile: {mobile}</div>
-            <input placeholder="OTP (phone)" value={code} onChange={e => setCode(e.target.value)} />
-            <button onClick={verify} disabled={loading}>{loading ? 'Verifying…' : 'Verify'}</button>
+            <p className="neo-auth-sub">OTP sent to {identifier}</p>
+            <input className="neo-control" placeholder="Enter OTP" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
+            <button className="neo-btn neo-btn-primary" onClick={verify} disabled={loading}>{loading ? 'Verifying…' : 'Verify OTP'}</button>
           </>
         )}
+
         {step === 'set' && (
           <>
-            <input placeholder="New PIN" value={p1} onChange={e => setP1(e.target.value)} type="password" />
-            <input placeholder="Confirm PIN" value={p2} onChange={e => setP2(e.target.value)} type="password" />
-            <button onClick={save} disabled={loading}>{loading ? 'Saving…' : 'Save'}</button>
+            <input className="neo-control" placeholder="New 4-digit PIN" value={p1} onChange={e => setP1(e.target.value.replace(/\D/g, '').slice(0, 4))} type="password" />
+            <input className="neo-control" placeholder="Confirm PIN" value={p2} onChange={e => setP2(e.target.value.replace(/\D/g, '').slice(0, 4))} type="password" />
+            <button className="neo-btn neo-btn-primary" onClick={save} disabled={loading}>{loading ? 'Saving…' : 'Save New PIN'}</button>
           </>
         )}
-        {message && <div style={{ color: 'var(--muted)' }}>{message}</div>}
-        {error && <div style={{ color: '#ff6c6c' }}>{error}</div>}
-      </div>
-    </div>
+
+        {message && <p className="neo-auth-sub">{message}</p>}
+        {error && <p className="error">{error}</p>}
+      </section>
+    </main>
   )
 }

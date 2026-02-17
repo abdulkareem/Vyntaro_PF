@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import { countryDialCodes } from '../lib/countryDialCodes'
-import { checkIdentityApi } from '../services/api/authApi'
-import { registerStart } from '../services/auth'
+import { checkIdentity, registerStart } from '../services/auth'
 
 export default function Register() {
   const nav = useNavigate()
@@ -29,7 +28,7 @@ export default function Register() {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await checkIdentityApi({ phone: fullPhone, email: form.email || undefined })
+        const res = await checkIdentity({ mobile: fullPhone, email: form.email || undefined })
         setIdentityStatus(res.exists ? 'exists' : 'new')
       } catch {
         setIdentityStatus('unknown')

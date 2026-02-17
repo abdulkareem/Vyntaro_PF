@@ -74,6 +74,22 @@ export function setPinApi(input: { phone: string; pin: string; userId?: string; 
   return post<{ ok: true }>('/api/auth/pin/set', input)
 }
 
+export function startPinResetApi(input: { phone?: string; email?: string }) {
+  return post<{ ok: true; code?: string; channel?: 'phone' | 'email' }>('/api/auth/pin/reset/start', input)
+}
+
+export function verifyPinResetApi(input: { phone?: string; email?: string; otp: string }) {
+  return post<{ ok: true }>('/api/auth/pin/reset/verify', input)
+}
+
+export function completePinResetApi(input: { phone?: string; email?: string; pin: string }) {
+  return post<{ ok: true }>('/api/auth/pin/reset/complete', input)
+}
+
+export function updatePinApi(input: { phone: string; oldPin: string; newPin: string }) {
+  return post<{ ok: true }>('/api/auth/pin/change', input)
+}
+
 /* ---------------- LOGIN ---------------- */
 
 export function loginApi(input: { phone: string; pin: string }) {
@@ -90,28 +106,35 @@ export function loginApi(input: { phone: string; pin: string }) {
   }>('/api/auth/login', input)
 }
 
-/* =====================================================
-   COMPATIBILITY LAYER (for existing screens)
-   ===================================================== */
+/* ---------------- PROFILE ---------------- */
 
-/**
- * Identity check is not implemented on backend yet.
- * Frontend uses it only for UX hints.
- */
-export async function checkIdentityApi(_: { phone: string; email?: string }) {
-  return { exists: false }
+export function checkIdentityApi(input: { phone: string; email?: string }) {
+  return post<{ exists: boolean; phoneExists?: boolean; emailExists?: boolean }>('/api/auth/identity/check', input)
 }
 
-/**
- * OTP resend not implemented yet.
- */
-export async function requestOtpApi(_: { phone: string; email?: string; resend?: boolean }) {
-  return { ok: true }
+export function requestOtpApi(input: { phone?: string; email?: string; purpose: string; resend?: boolean }) {
+  return post<{ ok: true; code?: string }>('/api/auth/otp/request', input)
 }
 
-/**
- * Legacy verifyOtp API → map to register verification
- */
-export async function verifyOtpApi(input: { phone: string; otp: string }) {
-  return verifyRegistrationApi(input)
+export function verifyOtpApi(input: { phone?: string; email?: string; otp: string; purpose: string }) {
+  return post<{ ok: true; token?: string }>('/api/auth/otp/verify', input)
+}
+
+export function updateProfileApi(input: {
+  userId: string
+  email?: string
+  phone?: string
+  avatarUrl?: string
+  otpToken: string
+}) {
+  return post<{
+    ok: true
+    user: {
+      id: string
+      phone: string
+      email?: string | null
+      verifiedAt?: string | null
+      avatarUrl?: string | null
+    }
+  }>('/api/auth/profile/update', input)
 }

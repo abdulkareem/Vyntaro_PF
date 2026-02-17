@@ -1,4 +1,16 @@
-import { loginApi, registerStartApi, requestOtpApi, setPinApi } from './api/authApi'
+import {
+  checkIdentityApi,
+  completePinResetApi,
+  loginApi,
+  registerStartApi,
+  requestOtpApi,
+  setPinApi,
+  startPinResetApi,
+  updatePinApi,
+  updateProfileApi,
+  verifyPinResetApi,
+  verifyOtpApi
+} from './api/authApi'
 
 type LocationData = { lat: number; lon: number } | null
 
@@ -25,7 +37,6 @@ type PendingRegistration = {
 type LoginResult =
   | { ok: true; user: AppUser }
   | { ok: false; reason: 'invalid' }
-  | { ok: false; reason: 'device_unverified'; needsOTP?: string }
 
 type PinResetRequestResult = { ok: true; code?: string } | { ok: false; reason: 'not_found' | 'throttled' | 'not_supported'; message?: string }
 type PinResetVerifyResult = { ok: true } | { ok: false; reason: 'expired' | 'invalid' | 'not_supported'; message?: string }
@@ -33,7 +44,6 @@ type PinSetResult = { ok: true } | { ok: false; reason?: 'not_supported'; messag
 
 const SESSION_KEY = 'session'
 const PENDING_REG_KEY = 'pending_registration'
-const PIN_RESET_ERR = 'PIN reset is handled by backend endpoints that are not yet available in this frontend.'
 
 const storage = {
   read<T>(k: string, d: T): T {
@@ -111,6 +121,10 @@ export async function registerStart(input: { mobile: string; email: string; name
   return response
 }
 
+export async function checkIdentity(input: { mobile: string; email?: string }) {
+  return checkIdentityApi({ phone: input.mobile, email: input.email })
+}
+
 export function resendRegistrationOTP(_mobile: string) {
   const pending = getPendingRegistration()
   if (!pending) return { error: 'missing' as const }
@@ -158,26 +172,65 @@ export function completeOtpSession(input: { id?: string; phone: string; name?: s
   })
 }
 
-export function verifyDeviceOTP(_mobile: string, _code: string) {
-  return { ok: false as const, reason: 'not_supported' as const }
-}
-
 export function currentUser(): AppUser | null {
   return getSession()?.user ?? null
 }
 
-export function startPinReset(_mobile: string): PinResetRequestResult {
-  return { ok: false as const, reason: 'not_supported' as const, message: PIN_RESET_ERR }
+export async function startPinReset(identifier: { mobile?: string; email?: string }): Promise<PinResetRequestResult> {
+  try {
+    const result = await startPinResetApi({ phone: identifier.mobile, email: identifier.email })
+    return { ok: true, code: result.code }
+  } catch (e: any) {
+    return { ok: false, reason: 'not_supported', message: e?.message || 'Failed to start PIN reset.' }
+  }
 }
 
-export function verifyPinReset(_mobile: string, _code: string): PinResetVerifyResult {
-  return { ok: false as const, reason: 'not_supported' as const, message: PIN_RESET_ERR }
+export async function verifyPinReset(identifier: { mobile?: string; email?: string }, code: string): Promise<PinResetVerifyResult> {
+  try {
+    await verifyPinResetApi({ phone: identifier.mobile, email: identifier.email, otp: code })
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, reason: 'invalid', message: e?.message || 'Invalid OTP' }
+  }
 }
 
-export async function setNewPin(_mobile: string, _pin: string): Promise<PinSetResult> {
-  return { ok: false as const, reason: 'not_supported' as const, message: PIN_RESET_ERR }
+export async function setNewPin(identifier: { mobile?: string; email?: string }, pin: string): Promise<PinSetResult> {
+  try {
+    await completePinResetApi({ phone: identifier.mobile, email: identifier.email, pin })
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, reason: 'not_supported', message: e?.message || 'Failed to reset PIN' }
+  }
 }
 
-export async function updatePin(_mobile: string, _oldPin: string, _newPin: string): Promise<PinSetResult> {
-  return { ok: false as const, reason: 'not_supported' as const, message: 'Change PIN backend endpoint is not yet wired in this frontend.' }
+export async function updatePin(mobile: string, oldPin: string, newPin: string): Promise<PinSetResult> {
+  try {
+    await updatePinApi({ phone: mobile, oldPin, newPin })
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, reason: 'not_supported', message: e?.message || 'Failed to update PIN.' }
+  }
+}
+
+export async function requestProfileUpdateOtp(input: { mobile?: string; email?: string }) {
+  return requestOtpApi({ ...input, purpose: 'profile_update' })
+}
+
+export async function verifyProfileUpdateOtp(input: { mobile?: string; email?: string; otp: string }) {
+  return verifyOtpApi({ ...input, purpose: 'profile_update' })
+}
+
+export async function updateProfile(input: { email?: string; mobile?: string; avatarUrl?: string; otpToken: string }) {
+  const user = currentUser()
+  if (!user) throw new Error('No active user session.')
+  const result = await updateProfileApi({
+    userId: user.id,
+    email: input.email,
+    phone: input.mobile,
+    avatarUrl: input.avatarUrl,
+    otpToken: input.otpToken
+  })
+
+  setSession({ ...user, mobile: result.user.phone, email: result.user.email, avatarUrl: result.user.avatarUrl })
+  return result.user
 }
