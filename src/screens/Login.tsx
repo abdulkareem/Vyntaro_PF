@@ -19,16 +19,13 @@ export default function Login() {
   const [pin, setPin] = useState(['', '', '', ''])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [locked, setLocked] = useState(false)
   const [remainingAttempts, setRemainingAttempts] = useState(MAX_ATTEMPTS)
   const pinRefs = useRef<Array<HTMLInputElement | null>>([])
 
   const pinValue = useMemo(() => pin.join(''), [pin])
 
   useEffect(() => {
-    const attempts = getRemainingAttempts()
-    setRemainingAttempts(attempts)
-    setLocked(attempts <= 0)
+    setRemainingAttempts(getRemainingAttempts())
 
     const savedPhone = localStorage.getItem('auth_phone')
     if (!savedPhone) return
@@ -44,7 +41,7 @@ export default function Login() {
   }, [phone])
 
   const handlePinChange = (index: number, value: string) => {
-    if (locked || loading) return
+    if (loading) return
     const next = value.replace(/\D/g, '').slice(-1)
     setPin(prev => {
       const copy = [...prev]
@@ -61,14 +58,14 @@ export default function Login() {
   }
 
   const handleDelete = () => {
-    if (locked || loading) return
+    if (loading) return
     setPin(['', '', '', ''])
     setError('')
     pinRefs.current[0]?.focus()
   }
 
   const handleSubmit = async () => {
-    if (locked || loading) return
+    if (loading) return
     setError('')
 
     if (!phone) return setError('Enter your mobile number to continue.')
@@ -92,8 +89,7 @@ export default function Login() {
       const nextAttempts = Math.max(0, getRemainingAttempts() - 1)
       localStorage.setItem(ATTEMPT_KEY, String(nextAttempts))
       setRemainingAttempts(nextAttempts)
-      setLocked(nextAttempts <= 0)
-      setError(nextAttempts <= 0 ? 'PIN locked due to too many attempts.' : 'Incorrect PIN. Try again.')
+      setError('Incorrect PIN. Try again or reset your PIN via OTP.')
       setPin(['', '', '', ''])
       pinRefs.current[0]?.focus()
     } catch {
@@ -138,7 +134,7 @@ export default function Login() {
                   pinRefs.current[index] = el
                 }}
                 value={digit}
-                disabled={locked || loading}
+                disabled={loading}
                 inputMode="numeric"
                 maxLength={1}
                 onChange={e => handlePinChange(index, e.target.value)}
@@ -150,26 +146,24 @@ export default function Login() {
               />
             ))}
           </div>
-          <button className="neo-pin-back" onClick={handleDelete} disabled={locked || loading} aria-label="Clear PIN">←</button>
+          <button className="neo-pin-back" onClick={handleDelete} disabled={loading} aria-label="Clear PIN">←</button>
         </div>
 
         {error && <p className="error">{error}</p>}
 
         <div className="neo-pin-actions">
-          <button className="neo-btn neo-btn-primary" onClick={handleSubmit} disabled={locked || loading}>
+          <button className="neo-btn neo-btn-primary" onClick={handleSubmit} disabled={loading}>
             {loading ? 'Verifying...' : 'Submit'}
           </button>
         </div>
 
-        {(locked || remainingAttempts === 0) && (
-          <button className="neo-btn neo-btn-link" onClick={() => nav(resetLink)}>
-            Reset PIN via OTP
-          </button>
-        )}
+        <button className="neo-btn neo-btn-link" onClick={() => nav(resetLink)}>
+          Reset PIN via OTP
+        </button>
 
-        {!locked && remainingAttempts > 0 && remainingAttempts < MAX_ATTEMPTS && (
+        {remainingAttempts < MAX_ATTEMPTS && (
           <p className="neo-auth-sub">
-            {remainingAttempts} attempt{remainingAttempts !== 1 ? 's' : ''} remaining
+            {remainingAttempts} attempt{remainingAttempts !== 1 ? 's' : ''} remaining before extra verification.
           </p>
         )}
 

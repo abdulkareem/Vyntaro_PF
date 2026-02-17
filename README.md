@@ -34,5 +34,5 @@ Current API-backed flows
 - Login: `POST /api/auth/login`
 
 Notes
-- In development, the backend may return `devOtp` in responses for testing.
-- Forgot PIN / Change PIN screens remain present in UI, but require corresponding backend endpoints to be fully wired.
+- In development, the backend may return `devOtp` or OTP codes in responses for testing.
+- Added frontend wiring for identity checks, PIN reset (mobile/email), profile updates via OTP verification, and change PIN endpoint.
