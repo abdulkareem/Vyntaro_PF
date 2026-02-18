@@ -181,7 +181,23 @@ export async function startPinReset(identifier: { mobile?: string; email?: strin
     const result = await startPinResetApi({ phone: identifier.mobile, email: identifier.email })
     return { ok: true, code: result.code }
   } catch (e: any) {
-    return { ok: false, reason: 'not_supported', message: e?.message || 'Failed to start PIN reset.' }
+    const message = e?.message || 'Failed to start PIN reset.'
+    const normalizedMessage = String(message).toLowerCase()
+
+    if (
+      normalizedMessage.includes('not registered')
+      || normalizedMessage.includes('not found')
+      || normalizedMessage.includes('no account')
+      || normalizedMessage.includes('does not exist')
+    ) {
+      return { ok: false, reason: 'not_found', message }
+    }
+
+    if (normalizedMessage.includes('too many') || normalizedMessage.includes('throttle')) {
+      return { ok: false, reason: 'throttled', message }
+    }
+
+    return { ok: false, reason: 'not_supported', message }
   }
 }
 
