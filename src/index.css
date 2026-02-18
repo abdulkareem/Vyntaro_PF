@@ -410,6 +410,47 @@ body[data-theme='light'] {
   color: var(--text-primary);
 }
 
+
+body[data-theme='light'] {
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+}
+
+body[data-theme='light'] .dashboard-subtitle,
+body[data-theme='light'] .balance-label,
+body[data-theme='light'] .transaction-date,
+body[data-theme='light'] .today-item span,
+body[data-theme='light'] .entry-type-card span,
+body[data-theme='light'] .mobile-nav-link,
+body[data-theme='light'] .dashboard-tab {
+  color: #334155;
+}
+
+body[data-theme='light'] .card-heading,
+body[data-theme='light'] .screen-title,
+body[data-theme='light'] .dashboard-title,
+body[data-theme='light'] .job-card,
+body[data-theme='light'] .shortcut-link,
+body[data-theme='light'] .activity-link,
+body[data-theme='light'] .bill-row,
+body[data-theme='light'] .quick-action-btn,
+body[data-theme='light'] .entry-type-card {
+  color: #0f172a;
+}
+
+body[data-theme='light'] .mobile-nav-link.active,
+body[data-theme='light'] .dashboard-tab.active {
+  color: #0b1120;
+}
+
+body[data-theme='dark'] .mobile-nav-link,
+body[data-theme='dark'] .dashboard-tab,
+body[data-theme='dark'] .quick-action-btn,
+body[data-theme='dark'] .entry-type-card,
+body[data-theme='dark'] .job-card {
+  color: #e2e8f0;
+}
+
 .dashboard-page {
   min-height: calc(100vh - 112px);
   padding: 16px 16px 84px;
@@ -874,6 +915,67 @@ body[data-theme='light'] .bill-row {
 body[data-theme='light'] .today-item,
 body[data-theme='light'] .entry-type-card {
   background: #ffffff;
+}
+
+
+.budget-card {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+body[data-theme='light'] .budget-card {
+  background: #ffffff;
+}
+
+.ledger-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ledger-form {
+  display: grid;
+  gap: 12px;
+}
+
+.ledger-field {
+  display: grid;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ledger-field input,
+.ledger-field select,
+.ledger-field textarea {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.65);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.ledger-field textarea {
+  resize: vertical;
+}
+
+body[data-theme='light'] .ledger-field input,
+body[data-theme='light'] .ledger-field select,
+body[data-theme='light'] .ledger-field textarea {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.ledger-category-inline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
 }
 
 @media (min-width: 768px) {

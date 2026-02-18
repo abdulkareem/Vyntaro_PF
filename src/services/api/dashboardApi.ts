@@ -108,19 +108,19 @@ export async function fetchDashboard(): Promise<DashboardData> {
     },
     jobs: [
       { id: 'shops', label: 'Order from Shops', icon: '🛒', href: '/dashboard/transactions' },
-      { id: 'rides', label: 'Book Auto / Car', icon: '🚕', href: '/dashboard/budgets' },
+      { id: 'rides', label: 'Book Auto / Car', icon: '🚕', href: '/dashboard/ledgerentry' },
       { id: 'bills', label: 'My Bills', icon: '🧾', href: '/dashboard/transactions?view=bills' },
-      { id: 'add', label: 'Add Entry', icon: '➕', href: '/dashboard/budgets?view=add-entry' }
+      { id: 'add', label: 'Add Entry', icon: '➕', href: '/dashboard/ledgerentry?view=add-entry' }
     ],
     shortcuts: [
       { id: 's1', text: 'Reorder from Anand Stores', href: '/dashboard/transactions?shop=anand' },
-      { id: 's2', text: 'Call Ravi Auto (last used)', href: '/dashboard/budgets?driver=ravi' },
+      { id: 's2', text: 'Call Ravi Auto (last used)', href: '/dashboard/ledgerentry?driver=ravi' },
       { id: 's3', text: 'View latest bill from Fresh Mart', href: '/dashboard/transactions?bill=fresh-mart' }
     ],
     activity: [
       { id: 'a1', text: 'Paid ₹320 at Green Grocery', href: '/dashboard/transactions?activity=a1' },
       { id: 'a2', text: 'Ordered Rice & Oil from Fresh Mart', href: '/dashboard/transactions?activity=a2' },
-      { id: 'a3', text: 'Auto ride with Ravi – ₹180', href: '/dashboard/budgets?activity=a3' },
+      { id: 'a3', text: 'Auto ride with Ravi – ₹180', href: '/dashboard/ledgerentry?activity=a3' },
       { id: 'a4', text: 'Electricity Bill uploaded by Shop', href: '/dashboard/transactions?activity=a4' }
     ],
     bills: [
