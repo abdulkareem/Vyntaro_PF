@@ -1054,3 +1054,173 @@ body[data-theme='light'] .ledger-field textarea {
     display: none !important;
   }
 }
+
+.financial-health-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.health-badge {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.health-badge.health-good {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.health-badge.health-average {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.health-badge.health-risky {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.financial-health-content {
+  display: grid;
+  gap: 8px;
+}
+
+.health-score {
+  font-size: 38px;
+}
+
+.expense-breakdown-list,
+.alerts-list,
+.lending-breakdown,
+.aging-buckets {
+  display: grid;
+  gap: 10px;
+}
+
+.expense-breakdown-row {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.expense-breakdown-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.expense-breakdown-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.24);
+  overflow: hidden;
+}
+
+.expense-breakdown-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #06b6d4);
+}
+
+.alert-item {
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  display: grid;
+  gap: 4px;
+}
+
+.alert-item p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.alert-warning {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.alert-info {
+  background: rgba(14, 165, 233, 0.12);
+}
+
+.alert-success {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.prediction-value {
+  margin: 10px 0 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #67e8f9;
+}
+
+.lending-details summary {
+  list-style: none;
+}
+
+.lending-summary-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.lending-summary-head .card-heading {
+  margin: 0;
+}
+
+.lending-totals {
+  margin-top: 10px;
+}
+
+.lending-person-row {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.lending-amount-wrap {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.overdue-pill {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.2);
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.aging-buckets {
+  margin-top: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.aging-bucket {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.35);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+body[data-theme='light'] .expense-breakdown-row,
+body[data-theme='light'] .lending-person-row,
+body[data-theme='light'] .aging-bucket {
+  background: #ffffff;
+}
