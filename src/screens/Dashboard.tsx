@@ -29,9 +29,7 @@ export default function Dashboard() {
         balance={data.balance}
         income={data.income}
         expense={data.expense}
-        moneyLent={data.moneyLent}
-        loan={data.loan}
-        charity={data.charity}
+        metricCards={data.metricCards}
       />
 
       <section className="dashboard-card fade-in-up">
@@ -60,9 +58,13 @@ export default function Dashboard() {
         <div className="today-grid">
           <article className="today-item income"><span>Income</span><strong>${today.income.toFixed(2)}</strong></article>
           <article className="today-item expense"><span>Expense</span><strong>${today.expense.toFixed(2)}</strong></article>
-          <article className="today-item lent"><span>Money Lent</span><strong>${today.moneyLent.toFixed(2)}</strong></article>
-          <article className="today-item loan"><span>Loan</span><strong>${today.loan.toFixed(2)}</strong></article>
-          <article className="today-item charity"><span>Charity</span><strong>${today.charity.toFixed(2)}</strong></article>
+          {today.cardTotals
+            .filter(card => !['income', 'expense'].includes(card.name.toLowerCase()))
+            .map(card => (
+              <article key={card.id} className="today-item budget">
+                <span>{card.name}</span><strong>${card.amount.toFixed(2)}</strong>
+              </article>
+            ))}
         </div>
       </section>
 
