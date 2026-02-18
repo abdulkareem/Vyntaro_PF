@@ -36,9 +36,6 @@ export default function Login() {
     }
   }, [])
 
-  useEffect(() => {
-    if (phone.length >= 8) pinRefs.current[0]?.focus()
-  }, [phone])
 
   const handlePinChange = (index: number, value: string) => {
     if (loading) return
@@ -122,6 +119,9 @@ export default function Login() {
             placeholder="Mobile number"
             value={phone}
             onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 15))}
+            onKeyDown={e => {
+              if (e.key === 'Enter') pinRefs.current[0]?.focus()
+            }}
           />
         </div>
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import { setNewPin, startPinReset, verifyPinReset } from '../services/auth'
 
@@ -16,6 +16,7 @@ export default function ForgotPin() {
   const [p2, setP2] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showRegisterLink, setShowRegisterLink] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const payload = useMemo(() => (mode === 'mobile' ? { mobile: identifier } : { email: identifier }), [identifier, mode])
@@ -28,6 +29,7 @@ export default function ForgotPin() {
 
     setLoading(true)
     setError(null)
+    setShowRegisterLink(false)
     const r = await startPinReset(payload)
     setLoading(false)
 
@@ -38,12 +40,19 @@ export default function ForgotPin() {
       return
     }
 
+    if (r.reason === 'not_found') {
+      setError(`This ${mode} is not registered.`)
+      setShowRegisterLink(true)
+      return
+    }
+
     setError(r.message ?? 'Unable to send OTP.')
   }
 
   const verify = async () => {
     setLoading(true)
     setError(null)
+    setShowRegisterLink(false)
     const r = await verifyPinReset(payload, code)
     setLoading(false)
 
@@ -64,6 +73,7 @@ export default function ForgotPin() {
 
     setLoading(true)
     setError(null)
+    setShowRegisterLink(false)
     const r = await setNewPin(payload, p1)
     setLoading(false)
 
@@ -112,6 +122,12 @@ export default function ForgotPin() {
 
         {message && <p className="neo-auth-sub">{message}</p>}
         {error && <p className="error">{error}</p>}
+        {showRegisterLink && step === 'request' && (
+          <p className="neo-auth-sub">
+            New here? <Link to="/register">Register now</Link>
+          </p>
+        )}
+
       </section>
     </main>
   )
