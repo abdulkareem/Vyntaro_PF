@@ -45,6 +45,27 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T
 }
 
+function isMissingRouteError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+  return message.includes('cannot post') || message.includes('not found') || message.includes('404')
+}
+
+async function postWithFallback<T>(paths: string[], body: unknown): Promise<T> {
+  let lastError: unknown
+
+  for (const [index, path] of paths.entries()) {
+    try {
+      return await post<T>(path, body)
+    } catch (error) {
+      lastError = error
+      const isLastPath = index === paths.length - 1
+      if (isLastPath || !isMissingRouteError(error)) throw error
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Request failed')
+}
+
 /* ---------------- REGISTER ---------------- */
 
 export function registerStartApi(input: RegisterStartInput) {
@@ -75,15 +96,27 @@ export function setPinApi(input: { phone: string; pin: string; userId?: string; 
 }
 
 export function startPinResetApi(input: { phone?: string; email?: string }) {
-  return post<{ ok: true; code?: string; channel?: 'phone' | 'email' }>('/api/auth/pin/reset/start', input)
+  return postWithFallback<{ ok: true; code?: string; channel?: 'phone' | 'email' }>([
+    '/api/auth/pin/reset/start',
+    '/api/auth/pin/forgot/start',
+    '/api/auth/reset-pin/start'
+  ], input)
 }
 
 export function verifyPinResetApi(input: { phone?: string; email?: string; otp: string }) {
-  return post<{ ok: true }>('/api/auth/pin/reset/verify', input)
+  return postWithFallback<{ ok: true }>([
+    '/api/auth/pin/reset/verify',
+    '/api/auth/pin/forgot/verify',
+    '/api/auth/reset-pin/verify'
+  ], input)
 }
 
 export function completePinResetApi(input: { phone?: string; email?: string; pin: string }) {
-  return post<{ ok: true }>('/api/auth/pin/reset/complete', input)
+  return postWithFallback<{ ok: true }>([
+    '/api/auth/pin/reset/complete',
+    '/api/auth/pin/forgot/complete',
+    '/api/auth/reset-pin/complete'
+  ], input)
 }
 
 export function updatePinApi(input: { phone: string; oldPin: string; newPin: string }) {
