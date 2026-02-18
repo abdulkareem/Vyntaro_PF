@@ -5,7 +5,8 @@ import SetPin from './screens/SetPin'
 import Login from './screens/Login'
 import Dashboard from './screens/Dashboard'
 import Transactions from './screens/Transactions'
-import Budgets from './screens/Budgets'
+import LedgerEntry from './screens/LedgerEntry'
+import LedgerEntryForm from './screens/LedgerEntryForm'
 import Analytics from './screens/Analytics'
 import Profile from './screens/Profile'
 import ForgotPin from './screens/ForgotPin'
@@ -32,7 +33,8 @@ const router = createBrowserRouter([
       { path: 'change-pin', element: <Protected><ChangePin /></Protected> },
       { path: 'dashboard', element: <Protected><Dashboard /></Protected> },
       { path: 'dashboard/transactions', element: <Protected><Transactions /></Protected> },
-      { path: 'dashboard/budgets', element: <Protected><Budgets /></Protected> },
+      { path: 'dashboard/ledgerentry', element: <Protected><LedgerEntry /></Protected> },
+      { path: 'dashboard/ledgerentry/new', element: <Protected><LedgerEntryForm /></Protected> },
       { path: 'dashboard/analytics', element: <Protected><Analytics /></Protected> },
       { path: 'dashboard/profile', element: <Protected><Profile /></Protected> }
     ]

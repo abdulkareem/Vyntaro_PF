@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 const actions = [
   { name: 'Send', icon: '➡️', to: '/dashboard/transactions?action=send' },
   { name: 'Request', icon: '📥', to: '/dashboard/transactions?action=request' },
-  { name: 'Add Funds', icon: '💰', to: '/dashboard/budgets?action=add-funds' },
+  { name: 'Add Funds', icon: '💰', to: '/dashboard/ledgerentry?action=add-funds' },
   { name: 'More', icon: '⋯', to: '/dashboard/profile?action=more' }
 ]
 
