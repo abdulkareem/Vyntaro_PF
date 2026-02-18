@@ -50,6 +50,21 @@ export type DashboardData = {
   balance: number
   income: number
   expense: number
+  moneyLent: number
+  loan: number
+  charity: number
+  todaySummary: {
+    dateLabel: string
+    income: number
+    expense: number
+    moneyLent: number
+    loan: number
+    charity: number
+  }
+  budgetSummary: {
+    monthly: number
+    yearly: number
+  }
   jobs: QuickJob[]
   shortcuts: SmartShortcut[]
   activity: ActivityItem[]
@@ -76,11 +91,26 @@ export async function fetchDashboard(): Promise<DashboardData> {
     balance: 12450,
     income: 8500,
     expense: 3450,
+    moneyLent: 1050,
+    loan: 1900,
+    charity: 500,
+    todaySummary: {
+      dateLabel: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      income: 620,
+      expense: 210,
+      moneyLent: 50,
+      loan: 90,
+      charity: 20
+    },
+    budgetSummary: {
+      monthly: 12000,
+      yearly: 144000
+    },
     jobs: [
       { id: 'shops', label: 'Order from Shops', icon: '🛒', href: '/dashboard/transactions' },
       { id: 'rides', label: 'Book Auto / Car', icon: '🚕', href: '/dashboard/budgets' },
       { id: 'bills', label: 'My Bills', icon: '🧾', href: '/dashboard/transactions?view=bills' },
-      { id: 'add', label: 'Add Expense', icon: '➕', href: '/dashboard/budgets?view=add-expense' }
+      { id: 'add', label: 'Add Entry', icon: '➕', href: '/dashboard/budgets?view=add-entry' }
     ],
     shortcuts: [
       { id: 's1', text: 'Reorder from Anand Stores', href: '/dashboard/transactions?shop=anand' },
