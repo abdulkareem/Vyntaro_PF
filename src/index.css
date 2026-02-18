@@ -484,9 +484,12 @@ body[data-theme='light'] .quick-action-btn {
 
 .balance-metrics {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
+}
+
+.balance-metrics-extended {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .balance-metric {
@@ -497,6 +500,9 @@ body[data-theme='light'] .quick-action-btn {
 .balance-metric p { margin: 0 0 4px; font-size: 12px; }
 .balance-metric.income { background: rgba(16, 185, 129, 0.15); color: #22c55e; }
 .balance-metric.expense { background: rgba(248, 113, 113, 0.15); color: #ef4444; }
+.balance-metric.lent { background: rgba(14, 165, 233, 0.16); color: #38bdf8; }
+.balance-metric.loan { background: rgba(234, 179, 8, 0.15); color: #eab308; }
+.balance-metric.charity { background: rgba(168, 85, 247, 0.18); color: #c084fc; }
 
 .quick-actions-grid {
   display: grid;
@@ -546,7 +552,7 @@ body[data-theme='light'] .quick-action-btn {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   padding: 8px;
   background: rgba(2, 6, 23, 0.95);
   border-top: 1px solid rgba(148, 163, 184, 0.2);
@@ -558,9 +564,15 @@ body[data-theme='light'] .quick-action-btn {
   font-size: 11px;
   color: var(--text-secondary);
   text-decoration: none;
+  padding: 6px 4px;
+  border-radius: 10px;
+  font-weight: 600;
 }
 
-.mobile-nav-link.active { color: #67e8f9; font-weight: 700; }
+.mobile-nav-link.active {
+  color: #67e8f9;
+  background: rgba(6, 182, 212, 0.12);
+}
 
 body[data-theme='light'] .mobile-nav {
   background: rgba(255, 255, 255, 0.95);
@@ -635,15 +647,18 @@ body,
   white-space: nowrap;
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 8px 14px;
   font-size: 12px;
+  font-weight: 600;
   background: rgba(15, 23, 42, 0.65);
+  transition: 0.2s ease;
 }
 
 .dashboard-tab.active {
   color: #ffffff;
   background: linear-gradient(90deg, #6366f1, #06b6d4);
-  border-color: transparent;
+  border-color: rgba(103, 232, 249, 0.45);
+  box-shadow: 0 8px 20px rgba(6, 182, 212, 0.24);
 }
 
 body[data-theme='light'] .dashboard-tab {
@@ -777,6 +792,102 @@ body[data-theme='light'] .bill-row {
 .bill-row {
   display: flex;
   justify-content: space-between;
+}
+
+.today-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.today-item {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.today-item span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.today-item strong {
+  font-size: 18px;
+}
+
+.today-item.income { color: #22c55e; }
+.today-item.expense { color: #ef4444; }
+.today-item.lent { color: #38bdf8; }
+.today-item.loan { color: #eab308; }
+.today-item.charity { color: #c084fc; }
+.today-item.budget { color: #67e8f9; }
+
+.date-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.date-arrow {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.entry-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.entry-type-card {
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  background: linear-gradient(140deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.6));
+  color: var(--text-primary);
+  border-radius: 14px;
+  padding: 12px;
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.entry-type-card span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.entry-type-icon {
+  font-size: 20px;
+  color: #67e8f9 !important;
+}
+
+body[data-theme='light'] .today-item,
+body[data-theme='light'] .entry-type-card {
+  background: #ffffff;
+}
+
+@media (min-width: 768px) {
+  .balance-metrics-extended {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .today-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .budget-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 767px) {

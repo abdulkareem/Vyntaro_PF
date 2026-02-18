@@ -5,7 +5,8 @@ const items = [
   { to: '/dashboard/transactions', label: '🛒 Shops' },
   { to: '/dashboard/budgets', label: '➕ Add' },
   { to: '/dashboard/analytics', label: '📊 Insights' },
-  { to: '/dashboard/profile', label: '👤 Profile' }
+  { to: '/dashboard/profile', label: '👤 Profile' },
+  { to: '/dashboard/profile?tab=settings', label: '⚙️ Settings' }
 ]
 
 export default function MobileNav() {
