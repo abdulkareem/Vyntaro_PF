@@ -1,25 +1,28 @@
 import { Link } from 'react-router-dom'
+import { DashboardMetricCard } from '../../services/api/dashboardApi'
 
 type BalanceCardProps = {
   monthLabel: string
   balance: number
   income: number
   expense: number
-  moneyLent: number
-  loan: number
-  charity: number
+  metricCards: DashboardMetricCard[]
 }
 
 const formatMoney = (value: number) => `$${value.toFixed(2)}`
+
+const metricTone = (name: string) => {
+  const tone = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  if (['income', 'expense', 'loan', 'charity', 'money-lent'].includes(tone)) return tone
+  return 'budget'
+}
 
 export default function BalanceCard({
   monthLabel,
   balance,
   income,
   expense,
-  moneyLent,
-  loan,
-  charity
+  metricCards
 }: BalanceCardProps) {
   return (
     <div className="dashboard-card balance-card fade-in-up">
@@ -36,18 +39,14 @@ export default function BalanceCard({
           <p>Expense</p>
           <strong>{formatMoney(expense)}</strong>
         </Link>
-        <Link to="/dashboard/transactions?type=money-lent" className="balance-metric lent metric-link">
-          <p>Money Lent</p>
-          <strong>{formatMoney(moneyLent)}</strong>
-        </Link>
-        <Link to="/dashboard/transactions?type=loan" className="balance-metric loan metric-link">
-          <p>Loan</p>
-          <strong>{formatMoney(loan)}</strong>
-        </Link>
-        <Link to="/dashboard/transactions?type=charity" className="balance-metric charity metric-link">
-          <p>Charity</p>
-          <strong>{formatMoney(charity)}</strong>
-        </Link>
+        {metricCards
+          .filter(card => !['income', 'expense'].includes(card.name.toLowerCase()))
+          .map(card => (
+            <Link key={card.id} to={card.href} className={`balance-metric ${metricTone(card.name)} metric-link`}>
+              <p>{card.name}</p>
+              <strong>{formatMoney(card.amount)}</strong>
+            </Link>
+          ))}
       </div>
     </div>
   )

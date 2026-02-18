@@ -52,7 +52,7 @@ export default function LedgerEntryForm() {
     setError('')
 
     try {
-      const category = await createLedgerCategory(newCategory.trim())
+      const category = await createLedgerCategory({ name: newCategory.trim(), type, showOnDashboard: true })
       setCategories(prev => [category, ...prev])
       setCategoryId(category.id)
       setNewCategory('')

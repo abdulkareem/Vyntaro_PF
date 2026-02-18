@@ -1,4 +1,6 @@
 import { currentUser } from '../auth'
+import { fetchLedgerEntries, LedgerCategory } from './ledgerApi'
+import { getCategories } from './localFinanceStore'
 
 export type TransactionItem = {
   id: string
@@ -43,6 +45,13 @@ export type BillItem = {
   href: string
 }
 
+export type DashboardMetricCard = {
+  id: string
+  name: string
+  amount: number
+  href: string
+}
+
 export type DashboardData = {
   userName: string
   profilePhoto: string
@@ -50,16 +59,12 @@ export type DashboardData = {
   balance: number
   income: number
   expense: number
-  moneyLent: number
-  loan: number
-  charity: number
+  metricCards: DashboardMetricCard[]
   todaySummary: {
     dateLabel: string
     income: number
     expense: number
-    moneyLent: number
-    loan: number
-    charity: number
+    cardTotals: DashboardMetricCard[]
   }
   budgetSummary: {
     monthly: number
@@ -78,29 +83,82 @@ function fallbackAvatar(seed: string) {
   return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(seed)}`
 }
 
+function normalizeType(name: string): 'income' | 'expense' {
+  return name.toLowerCase() === 'income' ? 'income' : 'expense'
+}
+
+function buildMetricCards(categories: LedgerCategory[], entries: Awaited<ReturnType<typeof fetchLedgerEntries>>) {
+  return categories
+    .filter(category => category.showOnDashboard)
+    .map(category => {
+      const amount = entries
+        .filter(entry => entry.categoryId === category.id)
+        .reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
+
+      return {
+        id: category.id,
+        name: category.name,
+        amount,
+        href: `/dashboard/transactions?category=${encodeURIComponent(category.name)}`
+      }
+    })
+}
+
 export async function fetchDashboard(): Promise<DashboardData> {
   const user = currentUser()
   const displayName = user?.name || 'John Doe'
 
-  await new Promise(resolve => setTimeout(resolve, 200))
+  await new Promise(resolve => setTimeout(resolve, 120))
+
+  const categories = getCategories()
+  const entries = await fetchLedgerEntries()
+  const metricCards = buildMetricCards(categories, entries)
+  const income = entries
+    .filter(entry => normalizeType(entry.type) === 'income')
+    .reduce((sum, entry) => sum + entry.amount, 0)
+  const expense = entries
+    .filter(entry => normalizeType(entry.type) === 'expense')
+    .reduce((sum, entry) => sum + entry.amount, 0)
+  const balance = income - expense
+
+  const todayDate = new Date().toISOString().slice(0, 10)
+  const todayEntries = entries.filter(entry => entry.date === todayDate)
+  const todayIncome = todayEntries
+    .filter(entry => normalizeType(entry.type) === 'income')
+    .reduce((sum, entry) => sum + entry.amount, 0)
+  const todayExpense = todayEntries
+    .filter(entry => normalizeType(entry.type) === 'expense')
+    .reduce((sum, entry) => sum + entry.amount, 0)
+
+  const todayCardTotals = metricCards.map(card => ({
+    ...card,
+    amount: todayEntries
+      .filter(entry => entry.categoryId === card.id)
+      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
+  }))
+
+  const transactions = entries.slice(0, 6).map(entry => ({
+    id: entry.id,
+    title: entry.item,
+    amount: normalizeType(entry.type) === 'income' ? entry.amount : -Math.abs(entry.amount),
+    type: normalizeType(entry.type),
+    date: entry.date,
+    href: `/dashboard/transactions?txn=${entry.id}`
+  }))
 
   return {
     userName: displayName,
     profilePhoto: user?.avatarUrl || fallbackAvatar(displayName),
     monthLabel: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-    balance: 12450,
-    income: 8500,
-    expense: 3450,
-    moneyLent: 1050,
-    loan: 1900,
-    charity: 500,
+    balance,
+    income,
+    expense,
+    metricCards,
     todaySummary: {
       dateLabel: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      income: 620,
-      expense: 210,
-      moneyLent: 50,
-      loan: 90,
-      charity: 20
+      income: todayIncome,
+      expense: todayExpense,
+      cardTotals: todayCardTotals
     },
     budgetSummary: {
       monthly: 12000,
@@ -128,12 +186,7 @@ export async function fetchDashboard(): Promise<DashboardData> {
       { id: 'b2', shop: 'Green Grocery', amount: 320, date: '2026-01-30', href: '/dashboard/transactions?bill=2' },
       { id: 'b3', shop: 'City Electronics', amount: 1240, date: '2026-01-25', href: '/dashboard/transactions?bill=3' }
     ],
-    transactions: [
-      { id: '1', title: 'Salary', amount: 5000, type: 'income', date: '2026-01-28', href: '/dashboard/transactions?txn=1' },
-      { id: '2', title: 'Groceries', amount: -210, type: 'expense', date: '2026-01-27', href: '/dashboard/transactions?txn=2' },
-      { id: '3', title: 'Electricity Bill', amount: -120, type: 'expense', date: '2026-01-26', href: '/dashboard/transactions?txn=3' },
-      { id: '4', title: 'Freelance Payment', amount: 1100, type: 'income', date: '2026-01-25', href: '/dashboard/transactions?txn=4' }
-    ],
+    transactions,
     budgets: [
       { id: 'bg1', name: 'Food', used: 120, total: 300 },
       { id: 'bg2', name: 'Travel', used: 450, total: 800 },

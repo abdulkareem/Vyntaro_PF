@@ -1,12 +1,16 @@
+import { addCategory, addEntry, FinanceType, getCategories, getEntries } from './localFinanceStore'
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
 
 export type LedgerCategory = {
   id: string
   name: string
+  type?: FinanceType
+  showOnDashboard?: boolean
 }
 
 export type LedgerEntryInput = {
-  type: 'expense' | 'income' | 'bill' | 'ledger'
+  type: FinanceType
   date: string
   item: string
   particulars: string
@@ -71,38 +75,73 @@ async function tryPaths<T>(paths: string[], init?: RequestInit): Promise<T> {
 }
 
 export async function fetchLedgerCategories(type = 'expense'): Promise<LedgerCategory[]> {
-  const payload = await tryPaths<ApiCategoryPayload | LedgerCategory[]>([
-    `/api/ledger/categories?type=${encodeURIComponent(type)}`,
-    `/api/ledgerentry/categories?type=${encodeURIComponent(type)}`,
-    `/api/categories?type=${encodeURIComponent(type)}`
-  ])
+  try {
+    const payload = await tryPaths<ApiCategoryPayload | LedgerCategory[]>([
+      `/api/ledger/categories?type=${encodeURIComponent(type)}`,
+      `/api/ledgerentry/categories?type=${encodeURIComponent(type)}`,
+      `/api/categories?type=${encodeURIComponent(type)}`
+    ])
 
-  return resolveCategories(payload)
+    return resolveCategories(payload)
+  } catch {
+    return getCategories(type as FinanceType)
+  }
 }
 
-export async function createLedgerCategory(name: string): Promise<LedgerCategory> {
-  const payload = await tryPaths<LedgerCategory | { category: LedgerCategory }>([
-    '/api/ledger/categories',
-    '/api/ledgerentry/categories',
-    '/api/categories'
-  ], {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name })
-  })
+export async function createLedgerCategory(input: {
+  name: string
+  type?: FinanceType
+  showOnDashboard?: boolean
+}): Promise<LedgerCategory> {
+  try {
+    const payload = await tryPaths<LedgerCategory | { category: LedgerCategory }>([
+      '/api/ledger/categories',
+      '/api/ledgerentry/categories',
+      '/api/categories'
+    ], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    })
 
-  if ('category' in payload) return payload.category
-  return payload
+    if ('category' in payload) return payload.category
+    return payload
+  } catch {
+    return addCategory({ name: input.name, type: input.type || 'expense', showOnDashboard: input.showOnDashboard })
+  }
 }
 
 export async function createLedgerEntry(input: LedgerEntryInput) {
-  return tryPaths<{ ok: boolean; id?: string; entryId?: string }>([
-    '/api/ledger/entries',
-    '/api/ledgerentry',
-    '/api/entries'
-  ], {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input)
-  })
+  try {
+    return await tryPaths<{ ok: boolean; id?: string; entryId?: string }>([
+      '/api/ledger/entries',
+      '/api/ledgerentry',
+      '/api/entries'
+    ], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    })
+  } catch {
+    let categoryId = input.categoryId
+    if (!categoryId && input.categoryName) {
+      categoryId = addCategory({ name: input.categoryName, type: input.type, showOnDashboard: true }).id
+    }
+    if (!categoryId) {
+      throw new Error('Please select or create a category first.')
+    }
+    const entry = addEntry({
+      type: input.type,
+      date: input.date,
+      item: input.item,
+      particulars: input.particulars,
+      amount: input.amount,
+      categoryId
+    })
+    return { ok: true, id: entry.id, entryId: entry.id }
+  }
+}
+
+export async function fetchLedgerEntries() {
+  return getEntries()
 }
