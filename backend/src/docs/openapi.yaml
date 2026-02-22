@@ -1,0 +1,53 @@
+openapi: 3.0.3
+info:
+  title: Vyntaro PF Bank-Grade API
+  version: 2.0.0
+servers:
+  - url: /api
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        ok: { type: boolean, example: false }
+        error: { type: string }
+    LedgerEntryCreate:
+      type: object
+      required: [debitAccountId, creditAccountId, amountMinor, currency, referenceId, referenceType]
+      properties:
+        debitAccountId: { type: string }
+        creditAccountId: { type: string }
+        amountMinor: { type: string }
+        currency: { type: string }
+        referenceId: { type: string }
+        referenceType: { type: string }
+paths:
+  /auth/register:
+    post:
+      summary: Register user with trial and referral support
+  /finance/ledger/entries:
+    post:
+      summary: Create immutable double-entry ledger row
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LedgerEntryCreate'
+      responses:
+        '201': { description: Created }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /finance/payments/webhook:
+    post:
+      summary: Verify gateway callback and post accounting entries
+  /finance/statements/generate:
+    post:
+      summary: Generate monthly statement with AI summary
+  /superadmin/analytics/revenue:
+    get:
+      summary: Fetch MRR/ARR/churn and GST aggregates

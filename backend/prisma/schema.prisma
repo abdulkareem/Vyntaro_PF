@@ -12,17 +12,85 @@ enum Role {
   superadmin
 }
 
+enum AccountType {
+  asset
+  liability
+  equity
+  income
+  expense
+}
+
+enum SubscriptionStatus {
+  trial
+  active
+  paused
+  expired
+  cancelled
+}
+
+enum SubscriptionPlan {
+  monthly
+  yearly
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  refunded
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  paid
+  void
+}
+
+enum StatementPeriod {
+  monthly
+  yearly
+}
+
+enum FraudFlagType {
+  self_referral
+  shared_ip
+  shared_device
+  shared_payment_source
+  ledger_manipulation
+}
+
 model User {
-  id           String          @id @default(cuid())
-  email        String?         @unique
-  mobile       String          @unique
-  name         String?
-  pinHash      String?
-  isActive     Boolean         @default(true)
-  role         Role            @default(user)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  resetTokens  PinResetToken[]
+  id                         String                  @id @default(cuid())
+  email                      String?                 @unique
+  mobile                     String                  @unique
+  name                       String?
+  pinHash                    String?
+  isActive                   Boolean                 @default(true)
+  role                       Role                    @default(user)
+  country                    String                  @default("US")
+  currency                   String                  @default("USD")
+  referralCode               String                  @unique @default(cuid())
+  referredByUserId           String?
+  firstMonthTrialConsumed    Boolean                 @default(false)
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+  resetTokens                PinResetToken[]
+  ledgerAccounts             LedgerAccount[]
+  subscriptions              Subscription[]
+  payments                   Payment[]
+  invoices                   Invoice[]
+  aiInsights                 AIInsight[]
+  statements                 Statement[]
+  adminAuditLogs             AdminAuditLog[]         @relation("AdminActor")
+  overrideFeatures           UserFeatureOverride[]
+  referralsMade              Referral[]              @relation("ReferralSource")
+  referralsReceived          Referral[]              @relation("ReferralTarget")
+  fraudFlags                 FraudFlag[]
+  referredBy                 User?                   @relation("UserReferralTree", fields: [referredByUserId], references: [id])
+  referredUsers              User[]                  @relation("UserReferralTree")
+
+  @@index([role])
 }
 
 model PinResetToken {
@@ -41,4 +109,236 @@ model AppSetting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+model LedgerAccount {
+  id              String         @id @default(cuid())
+  userId          String?
+  code            String
+  name            String
+  type            AccountType
+  currency        String
+  isSystem        Boolean        @default(false)
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  user            User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  debits          LedgerEntry[]  @relation("DebitAccount")
+  credits         LedgerEntry[]  @relation("CreditAccount")
+
+  @@unique([userId, code])
+  @@index([userId])
+  @@index([type])
+}
+
+model LedgerEntry {
+  id                String         @id @default(cuid())
+  userId            String?
+  debitAccountId    String
+  creditAccountId   String
+  amountMinor       BigInt
+  currency          String
+  transactionDate   DateTime
+  referenceId       String
+  referenceType     String
+  description       String?
+  meta              Json?
+  createdAt         DateTime       @default(now())
+  debitAccount      LedgerAccount  @relation("DebitAccount", fields: [debitAccountId], references: [id])
+  creditAccount     LedgerAccount  @relation("CreditAccount", fields: [creditAccountId], references: [id])
+
+  @@index([userId])
+  @@index([transactionDate])
+  @@index([debitAccountId])
+  @@index([creditAccountId])
+  @@index([referenceId, referenceType])
+}
+
+model FeatureFlag {
+  id            String                @id @default(cuid())
+  key           String                @unique
+  name          String
+  description   String?
+  defaultPaid   Boolean               @default(true)
+  alwaysFree    Boolean               @default(false)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  overrides     UserFeatureOverride[]
+}
+
+model UserFeatureOverride {
+  id            String      @id @default(cuid())
+  userId        String
+  featureId     String
+  isPaid        Boolean
+  reason        String?
+  createdById   String
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature       FeatureFlag @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, featureId])
+  @@index([userId])
+}
+
+model Subscription {
+  id                    String              @id @default(cuid())
+  userId                String
+  plan                  SubscriptionPlan
+  status                SubscriptionStatus
+  startDate             DateTime
+  endDate               DateTime
+  nextBillingDate       DateTime
+  freeMonthsRemaining   Int                 @default(0)
+  paidMonths            Int                 @default(0)
+  country               String
+  currency              String
+  unitAmountMinor       BigInt
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments              Payment[]
+  prorationLogs         SubscriptionProrationLog[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model SubscriptionProrationLog {
+  id                    String   @id @default(cuid())
+  subscriptionId        String
+  oldPlan               SubscriptionPlan
+  newPlan               SubscriptionPlan
+  unusedDays            Int
+  creditedAmountMinor   BigInt
+  adjustedAmountMinor   BigInt
+  createdAt             DateTime @default(now())
+  metadata              Json?
+  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+}
+
+model Payment {
+  id                      String        @id @default(cuid())
+  userId                  String
+  subscriptionId          String?
+  gateway                 String
+  gatewayReference        String        @unique
+  status                  PaymentStatus
+  baseAmountMinor         BigInt
+  gstAmountMinor          BigInt        @default(0)
+  cgstAmountMinor         BigInt        @default(0)
+  sgstAmountMinor         BigInt        @default(0)
+  igstAmountMinor         BigInt        @default(0)
+  totalAmountMinor        BigInt
+  currency                String
+  country                 String
+  paymentSourceFingerprint String?
+  paidAt                  DateTime?
+  createdAt               DateTime      @default(now())
+  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription            Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  invoice                 Invoice?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  userId          String
+  paymentId       String?       @unique
+  invoiceNumber   String        @unique
+  status          InvoiceStatus
+  pdfUrl          String?
+  issuedAt        DateTime?
+  emailedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment         Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model Referral {
+  id                String   @id @default(cuid())
+  referrerUserId    String
+  referredUserId    String
+  referredCode      String
+  successfulPaidAt  DateTime?
+  rewardApplied     Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  referrer          User     @relation("ReferralSource", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referred          User     @relation("ReferralTarget", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  @@unique([referrerUserId, referredUserId])
+  @@index([referredCode])
+}
+
+model FraudFlag {
+  id              String       @id @default(cuid())
+  userId          String
+  type            FraudFlagType
+  severity        Int          @default(1)
+  details         Json?
+  isResolved      Boolean      @default(false)
+  resolvedById    String?
+  createdAt       DateTime     @default(now())
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Statement {
+  id                        String          @id @default(cuid())
+  userId                    String
+  period                    StatementPeriod
+  periodStart               DateTime
+  periodEnd                 DateTime
+  openingBalanceMinor       BigInt
+  closingBalanceMinor       BigInt
+  categorySummary           Json
+  featureUsageSummary       Json
+  subscriptionChargesMinor  BigInt
+  taxMinor                  BigInt
+  referralBenefitMinor      BigInt
+  aiSummary                 String?
+  pdfUrl                    String?
+  emailedAt                 DateTime?
+  createdAt                 DateTime        @default(now())
+  user                      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([periodStart, periodEnd])
+}
+
+model AIInsight {
+  id              String   @id @default(cuid())
+  userId          String
+  insightType     String
+  title           String
+  summary         String
+  confidence      Float?
+  payload         Json
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AdminAuditLog {
+  id              String   @id @default(cuid())
+  actorId         String?
+  action          String
+  targetType      String
+  targetId        String?
+  beforeState     Json?
+  afterState      Json?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  actor           User?    @relation("AdminActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([targetType, targetId])
 }
