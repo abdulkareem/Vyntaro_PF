@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  superadmin
+}
+
+model User {
+  id           String          @id @default(cuid())
+  email        String?         @unique
+  mobile       String          @unique
+  name         String?
+  pinHash      String?
+  isActive     Boolean         @default(true)
+  role         Role            @default(user)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  resetTokens  PinResetToken[]
+}
+
+model PinResetToken {
+  id          String   @id @default(cuid())
+  userId      String
+  tokenHash   String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
