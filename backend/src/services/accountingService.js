@@ -1,6 +1,17 @@
 import { prisma } from '../config/prisma.js'
 import { HttpError } from '../utils/httpError.js'
 
+export function validateLedgerIntegrity(entries) {
+  const totals = entries.reduce((acc, entry) => {
+    const amount = BigInt(entry.amountMinor)
+    acc.debits += amount
+    acc.credits += amount
+    return acc
+  }, { debits: 0n, credits: 0n })
+
+  return { ...totals, balanced: totals.debits === totals.credits }
+}
+
 export async function postDoubleEntry({ userId, debitAccountId, creditAccountId, amountMinor, currency, referenceId, referenceType, description, transactionDate = new Date(), meta }) {
   if (debitAccountId === creditAccountId) {
     throw new HttpError(400, 'Debit and credit accounts cannot be identical')
@@ -48,14 +59,9 @@ export async function getTrialBalance({ userId, startDate, endDate }) {
     }
   })
 
-  const totals = entries.reduce((acc, entry) => {
-    const amount = BigInt(entry.amountMinor)
-    acc.debits += amount
-    acc.credits += amount
-    return acc
-  }, { debits: 0n, credits: 0n })
+  const totals = validateLedgerIntegrity(entries)
 
-  if (totals.debits !== totals.credits) {
+  if (!totals.balanced) {
     throw new HttpError(500, 'Ledger out of balance detected')
   }
 

@@ -4,6 +4,7 @@ import { ensureUserSubscription } from '../services/subscriptionService.js'
 import { verifyWebhookAndCapture } from '../services/billingService.js'
 import { generateStatement } from '../services/statementService.js'
 import { generateAIInsights } from '../services/insightService.js'
+import { createShopOrder, createTrip } from '../services/commerceService.js'
 
 export const ledgerSchema = z.object({
   debitAccountId: z.string(),
@@ -15,10 +16,65 @@ export const ledgerSchema = z.object({
   description: z.string().optional()
 })
 
+export const shopOrderSchema = z.object({
+  shopId: z.string(),
+  shopName: z.string(),
+  shopLocation: z.string().optional(),
+  orderId: z.string(),
+  orderDate: z.coerce.date(),
+  orderStatus: z.enum(['pending', 'confirmed', 'packed', 'delivered', 'cancelled']),
+  totalAmount: z.string(),
+  paymentReference: z.string().optional(),
+  currency: z.string().length(3),
+  items: z.array(z.object({
+    itemName: z.string(),
+    category: z.string(),
+    quantity: z.number().positive(),
+    unitPrice: z.string(),
+    totalPrice: z.string()
+  })).min(1)
+})
+
+export const tripSchema = z.object({
+  pickupLocationText: z.string(),
+  pickupLatitude: z.number(),
+  pickupLongitude: z.number(),
+  dropLocationText: z.string(),
+  dropLatitude: z.number(),
+  dropLongitude: z.number(),
+  distanceEstimate: z.number().optional(),
+  fareEstimate: z.string().optional(),
+  actualFare: z.string().optional(),
+  tripStatus: z.enum(['requested', 'accepted', 'in_progress', 'completed', 'cancelled']),
+  tripDate: z.coerce.date(),
+  vehicleType: z.enum(['auto', 'car']).optional(),
+  vehicleNumber: z.string().optional(),
+  driverName: z.string().optional(),
+  driverId: z.string().optional()
+})
+
 export async function createLedgerEntry(req, res, next) {
   try {
     const entry = await postDoubleEntry({ userId: req.user.sub, ...req.body })
     return res.status(201).json({ ok: true, data: entry })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export async function createOrder(req, res, next) {
+  try {
+    const order = await createShopOrder(req.user.sub, req.body)
+    return res.status(201).json({ ok: true, data: order })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export async function createTripBooking(req, res, next) {
+  try {
+    const trip = await createTrip(req.user.sub, req.body)
+    return res.status(201).json({ ok: true, data: trip })
   } catch (error) {
     return next(error)
   }
