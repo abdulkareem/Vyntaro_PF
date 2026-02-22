@@ -4,6 +4,7 @@ import { prisma } from '../config/prisma.js'
 import { env } from '../config/env.js'
 import { HttpError } from '../utils/httpError.js'
 import { comparePin, generateResetToken, hashPin, hashResetToken } from '../utils/security.js'
+import { ensureUserSubscription } from '../services/subscriptionService.js'
 
 const pinSchema = z.string().regex(/^\d{4}$/)
 
@@ -11,16 +12,19 @@ export const registerSchema = z.object({
   email: z.string().email(),
   mobile: z.string().min(8),
   name: z.string().min(2).max(100).optional(),
-  pin: pinSchema
+  pin: pinSchema,
+  country: z.string().default('US'),
+  referralCode: z.string().optional()
 })
 
 export async function register(req, res, next) {
   try {
-    const { email, mobile, name, pin } = req.body
+    const { email, mobile, name, pin, country, referralCode } = req.body
 
-    const [emailUser, mobileUser] = await Promise.all([
+    const [emailUser, mobileUser, referrer] = await Promise.all([
       prisma.user.findUnique({ where: { email } }),
-      prisma.user.findUnique({ where: { mobile } })
+      prisma.user.findUnique({ where: { mobile } }),
+      referralCode ? prisma.user.findUnique({ where: { referralCode } }) : Promise.resolve(null)
     ])
 
     if (emailUser) {
@@ -32,9 +36,15 @@ export async function register(req, res, next) {
     }
 
     const user = await prisma.user.create({
-      data: { email, mobile, name, pinHash: await hashPin(pin), role: 'user' },
-      select: { id: true, email: true, mobile: true, name: true, role: true, isActive: true, createdAt: true }
+      data: { email, mobile, name, pinHash: await hashPin(pin), role: 'user', country, referredByUserId: referrer?.id },
+      select: { id: true, email: true, mobile: true, name: true, role: true, isActive: true, createdAt: true, referralCode: true }
     })
+
+    await ensureUserSubscription(user.id, country)
+
+    if (referrer) {
+      await prisma.referral.create({ data: { referrerUserId: referrer.id, referredUserId: user.id, referredCode: referralCode } })
+    }
 
     return res.status(201).json({ ok: true, data: { user } })
   } catch (error) {
