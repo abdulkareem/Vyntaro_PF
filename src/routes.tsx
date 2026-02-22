@@ -14,6 +14,17 @@ import ChangePin from './screens/ChangePin'
 import Shell from './shell/Shell'
 import { isAuthenticated } from './services/auth'
 
+import AdminGuard from './admin/components/AdminGuard'
+import AdminLayout from './admin/components/AdminLayout'
+import AdminLogin from './admin/screens/AdminLogin'
+import AdminDashboard from './admin/screens/AdminDashboard'
+import AdminUsers from './admin/screens/AdminUsers'
+import AdminRoles from './admin/screens/AdminRoles'
+import AdminDatabase from './admin/screens/AdminDatabase'
+import AdminSettings from './admin/screens/AdminSettings'
+import AdminActivity from './admin/screens/AdminActivity'
+
+
 function Protected({ children }: { children: JSX.Element }) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />
   return children
@@ -36,7 +47,21 @@ const router = createBrowserRouter([
       { path: 'dashboard/ledgerentry', element: <Protected><LedgerEntry /></Protected> },
       { path: 'dashboard/ledgerentry/new', element: <Protected><LedgerEntryForm /></Protected> },
       { path: 'dashboard/analytics', element: <Protected><Analytics /></Protected> },
-      { path: 'dashboard/profile', element: <Protected><Profile /></Protected> }
+      { path: 'dashboard/profile', element: <Protected><Profile /></Protected> },
+      { path: 'admin/login', element: <AdminLogin /> },
+      {
+        path: 'admin',
+        element: <AdminGuard><AdminLayout /></AdminGuard>,
+        children: [
+          { index: true, element: <Navigate to="/admin/dashboard" replace /> },
+          { path: 'dashboard', element: <AdminDashboard /> },
+          { path: 'users', element: <AdminUsers /> },
+          { path: 'roles', element: <AdminRoles /> },
+          { path: 'database', element: <AdminDatabase /> },
+          { path: 'activity', element: <AdminActivity /> },
+          { path: 'settings', element: <AdminSettings /> }
+        ]
+      }
     ]
   }
 ])
