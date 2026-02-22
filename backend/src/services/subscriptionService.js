@@ -49,6 +49,13 @@ export function calculateProration({ currentAmountMinor, daysInCycle, remainingD
   return { unusedCreditMinor: unusedCredit, adjustedAmountMinor: adjustedAmount > 0n ? adjustedAmount : 0n }
 }
 
+export function evaluateReferralEligibility({ successfulReferrals, referralFreeMonthsAwarded, currentTotalFreeMonths }) {
+  if (successfulReferrals < 3) return { eligible: false, reason: 'Insufficient successful referrals' }
+  if (referralFreeMonthsAwarded >= 3) return { eligible: false, reason: 'Referral cap reached' }
+  if (currentTotalFreeMonths >= 4) return { eligible: false, reason: 'Total free-month cap reached' }
+  return { eligible: true }
+}
+
 export async function applyReferralReward(referrerUserId) {
   const successful = await prisma.referral.count({
     where: {
@@ -58,13 +65,16 @@ export async function applyReferralReward(referrerUserId) {
     }
   })
 
-  if (successful < 3) return { applied: false }
-
   const sub = await prisma.subscription.findFirst({ where: { userId: referrerUserId }, orderBy: { createdAt: 'desc' } })
   if (!sub) throw new HttpError(404, 'Subscription not found')
 
-  const capRemaining = Math.max(0, 3 - Math.max(0, sub.freeMonthsRemaining - 1))
-  if (capRemaining <= 0) return { applied: false, reason: 'Referral cap reached' }
+  const referralFreeMonthsAwarded = Math.max(0, sub.freeMonthsRemaining - 1)
+  const decision = evaluateReferralEligibility({
+    successfulReferrals: successful,
+    referralFreeMonthsAwarded,
+    currentTotalFreeMonths: sub.freeMonthsRemaining
+  })
+  if (!decision.eligible) return { applied: false, reason: decision.reason }
 
   await prisma.$transaction([
     prisma.subscription.update({

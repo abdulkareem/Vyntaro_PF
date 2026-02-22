@@ -57,7 +57,30 @@ enum FraudFlagType {
   shared_ip
   shared_device
   shared_payment_source
+  duplicate_trip
+  fake_shop_order
   ledger_manipulation
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  packed
+  delivered
+  cancelled
+}
+
+enum TripStatus {
+  requested
+  accepted
+  in_progress
+  completed
+  cancelled
+}
+
+enum VehicleType {
+  auto
+  car
 }
 
 model User {
@@ -75,8 +98,10 @@ model User {
   firstMonthTrialConsumed    Boolean                 @default(false)
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
+  deletedAt                  DateTime?
   resetTokens                PinResetToken[]
   ledgerAccounts             LedgerAccount[]
+  ledgerEntries              LedgerEntry[]
   subscriptions              Subscription[]
   payments                   Payment[]
   invoices                   Invoice[]
@@ -87,10 +112,14 @@ model User {
   referralsMade              Referral[]              @relation("ReferralSource")
   referralsReceived          Referral[]              @relation("ReferralTarget")
   fraudFlags                 FraudFlag[]
+  shops                      Shop[]
+  shopOrders                 ShopOrder[]
+  trips                      Trip[]
   referredBy                 User?                   @relation("UserReferralTree", fields: [referredByUserId], references: [id])
   referredUsers              User[]                  @relation("UserReferralTree")
 
   @@index([role])
+  @@index([deletedAt])
 }
 
 model PinResetToken {
@@ -109,6 +138,105 @@ model AppSetting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+model Shop {
+  id          String      @id @default(cuid())
+  userId      String
+  externalId  String?
+  name        String
+  location    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders      ShopOrder[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model ShopOrder {
+  id                String          @id @default(cuid())
+  userId            String
+  shopId            String
+  shopName          String
+  shopLocation      String?
+  orderExternalId   String
+  orderDate         DateTime
+  orderStatus       OrderStatus
+  totalAmountMinor  BigInt
+  paymentReference  String?
+  currency          String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop              Shop            @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  items             ShopOrderItem[]
+
+  @@unique([shopId, orderExternalId])
+  @@index([userId, orderDate])
+  @@index([orderStatus])
+}
+
+model ShopOrderItem {
+  id                String     @id @default(cuid())
+  orderId           String
+  itemName          String
+  category          String
+  quantity          Decimal    @db.Decimal(10, 2)
+  unitPriceMinor    BigInt
+  totalPriceMinor   BigInt
+  createdAt         DateTime   @default(now())
+  order             ShopOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([category])
+}
+
+model Driver {
+  id                String    @id @default(cuid())
+  externalDriverId  String?   @unique
+  name              String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  trips             Trip[]
+}
+
+model Vehicle {
+  id               String       @id @default(cuid())
+  vehicleType      VehicleType
+  vehicleNumber    String       @unique
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  trips            Trip[]
+}
+
+model Trip {
+  id                   String       @id @default(cuid())
+  userId               String
+  pickupLocationText   String
+  pickupLatitude       Decimal      @db.Decimal(10, 7)
+  pickupLongitude      Decimal      @db.Decimal(10, 7)
+  dropLocationText     String
+  dropLatitude         Decimal      @db.Decimal(10, 7)
+  dropLongitude        Decimal      @db.Decimal(10, 7)
+  distanceEstimateKm   Decimal?     @db.Decimal(10, 2)
+  fareEstimateMinor    BigInt?
+  actualFareMinor      BigInt?
+  tripStatus           TripStatus
+  tripDate             DateTime
+  vehicleId            String?
+  driverId             String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle              Vehicle?     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  driver               Driver?      @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  @@index([userId, tripDate])
+  @@index([tripStatus])
 }
 
 model LedgerAccount {
@@ -144,8 +272,9 @@ model LedgerEntry {
   description       String?
   meta              Json?
   createdAt         DateTime       @default(now())
-  debitAccount      LedgerAccount  @relation("DebitAccount", fields: [debitAccountId], references: [id])
-  creditAccount     LedgerAccount  @relation("CreditAccount", fields: [creditAccountId], references: [id])
+  user              User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  debitAccount      LedgerAccount  @relation("DebitAccount", fields: [debitAccountId], references: [id], onDelete: Restrict)
+  creditAccount     LedgerAccount  @relation("CreditAccount", fields: [creditAccountId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@index([transactionDate])
@@ -182,21 +311,21 @@ model UserFeatureOverride {
 }
 
 model Subscription {
-  id                    String              @id @default(cuid())
+  id                    String                    @id @default(cuid())
   userId                String
   plan                  SubscriptionPlan
   status                SubscriptionStatus
   startDate             DateTime
   endDate               DateTime
   nextBillingDate       DateTime
-  freeMonthsRemaining   Int                 @default(0)
-  paidMonths            Int                 @default(0)
+  freeMonthsRemaining   Int                       @default(0)
+  paidMonths            Int                       @default(0)
   country               String
   currency              String
   unitAmountMinor       BigInt
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  user                  User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   payments              Payment[]
   prorationLogs         SubscriptionProrationLog[]
 
@@ -205,41 +334,41 @@ model Subscription {
 }
 
 model SubscriptionProrationLog {
-  id                    String   @id @default(cuid())
+  id                    String            @id @default(cuid())
   subscriptionId        String
   oldPlan               SubscriptionPlan
   newPlan               SubscriptionPlan
   unusedDays            Int
   creditedAmountMinor   BigInt
   adjustedAmountMinor   BigInt
-  createdAt             DateTime @default(now())
+  createdAt             DateTime          @default(now())
   metadata              Json?
-  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscription          Subscription      @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@index([subscriptionId])
 }
 
 model Payment {
-  id                      String        @id @default(cuid())
-  userId                  String
-  subscriptionId          String?
-  gateway                 String
-  gatewayReference        String        @unique
-  status                  PaymentStatus
-  baseAmountMinor         BigInt
-  gstAmountMinor          BigInt        @default(0)
-  cgstAmountMinor         BigInt        @default(0)
-  sgstAmountMinor         BigInt        @default(0)
-  igstAmountMinor         BigInt        @default(0)
-  totalAmountMinor        BigInt
-  currency                String
-  country                 String
-  paymentSourceFingerprint String?
-  paidAt                  DateTime?
-  createdAt               DateTime      @default(now())
-  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subscription            Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  invoice                 Invoice?
+  id                        String        @id @default(cuid())
+  userId                    String
+  subscriptionId            String?
+  gateway                   String
+  gatewayReference          String        @unique
+  status                    PaymentStatus
+  baseAmountMinor           BigInt
+  gstAmountMinor            BigInt        @default(0)
+  cgstAmountMinor           BigInt        @default(0)
+  sgstAmountMinor           BigInt        @default(0)
+  igstAmountMinor           BigInt        @default(0)
+  totalAmountMinor          BigInt
+  currency                  String
+  country                   String
+  paymentSourceFingerprint  String?
+  paidAt                    DateTime?
+  createdAt                 DateTime      @default(now())
+  user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription              Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  invoice                   Invoice?
 
   @@index([userId])
   @@index([status])
@@ -288,6 +417,7 @@ model FraudFlag {
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([type, isResolved])
 }
 
 model Statement {
