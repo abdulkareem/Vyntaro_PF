@@ -2,6 +2,8 @@ import jwt from 'jsonwebtoken'
 import { env } from '../config/env.js'
 import { HttpError } from '../utils/httpError.js'
 
+const ADMIN_ROLES = new Set(['admin', 'superadmin'])
+
 function readBearerToken(req) {
   const header = req.headers.authorization || ''
   if (!header.startsWith('Bearer ')) return null
@@ -14,7 +16,7 @@ export function requireAdmin(req, _res, next) {
 
   try {
     const payload = jwt.verify(token, env.adminJwtSecret)
-    if (payload.role !== 'superadmin') throw new HttpError(403, 'Forbidden')
+    if (!ADMIN_ROLES.has(payload.role)) throw new HttpError(403, 'Forbidden')
     req.admin = payload
     return next()
   } catch (error) {

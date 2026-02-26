@@ -15,7 +15,7 @@ export async function adminLogin(req, res, next) {
     const { mobile, pin } = req.body
     const admin = await prisma.user.findUnique({ where: { mobile } })
 
-    if (!admin || admin.role !== 'superadmin' || !admin.pinHash) {
+    if (!admin || !['admin', 'superadmin'].includes(admin.role) || !admin.pinHash) {
       throw new HttpError(401, 'Invalid admin credentials')
     }
 

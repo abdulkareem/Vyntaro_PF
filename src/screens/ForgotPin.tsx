@@ -3,13 +3,13 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import { setNewPin, startPinReset, verifyPinReset } from '../services/auth'
 
-type ResetMode = 'mobile' | 'email'
+type ResetMode = 'phone' | 'email'
 
 export default function ForgotPin() {
   const [sp] = useSearchParams()
   const nav = useNavigate()
-  const [mode, setMode] = useState<ResetMode>('mobile')
-  const [identifier, setIdentifier] = useState(sp.get('mobile') ?? '')
+  const [mode, setMode] = useState<ResetMode>('phone')
+  const [identifier, setIdentifier] = useState(sp.get('mobile') ?? sp.get('phone') ?? '')
   const [step, setStep] = useState<'request' | 'verify' | 'set'>('request')
   const [code, setCode] = useState('')
   const [p1, setP1] = useState('')
@@ -19,7 +19,7 @@ export default function ForgotPin() {
   const [showRegisterLink, setShowRegisterLink] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const payload = useMemo(() => (mode === 'mobile' ? { mobile: identifier } : { email: identifier }), [identifier, mode])
+  const payload = useMemo(() => (mode === 'phone' ? { phone: identifier } : { email: identifier }), [identifier, mode])
 
   const request = async () => {
     if (!identifier.trim()) {
@@ -86,19 +86,19 @@ export default function ForgotPin() {
       <section className="neo-auth-card">
         <VyntaroLogoAnimated size={76} />
         <h2>Reset PIN</h2>
-        <p className="neo-auth-sub">Reset your PIN using OTP verification with mobile or email.</p>
+        <p className="neo-auth-sub">Reset your PIN using OTP verification with phone or email.</p>
 
         {step === 'request' && (
           <>
             <div className="neo-chip-row">
-              <button className={`neo-chip ${mode === 'mobile' ? 'active' : ''}`} onClick={() => { setMode('mobile'); setIdentifier('') }} type="button">Mobile</button>
+              <button className={`neo-chip ${mode === 'phone' ? 'active' : ''}`} onClick={() => { setMode('phone'); setIdentifier('') }} type="button">Phone</button>
               <button className={`neo-chip ${mode === 'email' ? 'active' : ''}`} onClick={() => { setMode('email'); setIdentifier('') }} type="button">Email</button>
             </div>
             <input
               className="neo-control"
-              placeholder={mode === 'mobile' ? 'Registered mobile' : 'Registered email'}
+              placeholder={mode === 'phone' ? 'Registered phone' : 'Registered email'}
               value={identifier}
-              onChange={e => setIdentifier(mode === 'mobile' ? e.target.value.replace(/\D/g, '').slice(0, 15) : e.target.value)}
+              onChange={e => setIdentifier(mode === 'phone' ? e.target.value.replace(/\D/g, '').slice(0, 15) : e.target.value)}
             />
             <button className="neo-btn neo-btn-primary" onClick={request} disabled={loading}>{loading ? 'Sending…' : 'Send OTP'}</button>
           </>

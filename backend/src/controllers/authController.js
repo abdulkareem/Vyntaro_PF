@@ -5,6 +5,7 @@ import { env } from '../config/env.js'
 import { HttpError } from '../utils/httpError.js'
 import { comparePin, generateResetToken, hashPin, hashResetToken } from '../utils/security.js'
 import { ensureUserSubscription } from '../services/subscriptionService.js'
+import { findUserForPinReset, forgotPinSchema } from '../services/pinResetService.js'
 
 const pinSchema = z.string().regex(/^\d{4}$/)
 
@@ -82,15 +83,17 @@ export async function login(req, res, next) {
   }
 }
 
-export const forgotPinSchema = z.object({
-  email: z.string().email()
-})
 
 export async function startPinReset(req, res, next) {
   try {
-    const { email } = req.body
-    const user = await prisma.user.findUnique({ where: { email } })
-    if (!user) throw new HttpError(404, 'User not found for provided email')
+    const { email, phone } = req.body
+    const user = await findUserForPinReset({
+      email,
+      phone,
+      findByEmail: (lookupEmail) => prisma.user.findUnique({ where: { email: lookupEmail } }),
+      findByPhone: (lookupPhone) => prisma.user.findUnique({ where: { mobile: lookupPhone } })
+    })
+    if (!user) throw new HttpError(404, 'No account found for the provided email or phone.')
 
     const token = generateResetToken()
     const expiresAt = new Date(Date.now() + env.resetTokenTtlMinutes * 60 * 1000)

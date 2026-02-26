@@ -176,9 +176,9 @@ export function currentUser(): AppUser | null {
   return getSession()?.user ?? null
 }
 
-export async function startPinReset(identifier: { mobile?: string; email?: string }): Promise<PinResetRequestResult> {
+export async function startPinReset(identifier: { phone?: string; email?: string }): Promise<PinResetRequestResult> {
   try {
-    const result = await startPinResetApi({ phone: identifier.mobile, email: identifier.email })
+    const result = await startPinResetApi({ phone: identifier.phone, email: identifier.email })
     return { ok: true, code: result.code }
   } catch (e: any) {
     const message = e?.message || 'Failed to start PIN reset.'
@@ -201,18 +201,18 @@ export async function startPinReset(identifier: { mobile?: string; email?: strin
   }
 }
 
-export async function verifyPinReset(identifier: { mobile?: string; email?: string }, code: string): Promise<PinResetVerifyResult> {
+export async function verifyPinReset(identifier: { phone?: string; email?: string }, code: string): Promise<PinResetVerifyResult> {
   try {
-    await verifyPinResetApi({ phone: identifier.mobile, email: identifier.email, otp: code })
+    await verifyPinResetApi({ phone: identifier.phone, email: identifier.email, otp: code })
     return { ok: true }
   } catch (e: any) {
     return { ok: false, reason: 'invalid', message: e?.message || 'Invalid OTP' }
   }
 }
 
-export async function setNewPin(identifier: { mobile?: string; email?: string }, pin: string): Promise<PinSetResult> {
+export async function setNewPin(identifier: { phone?: string; email?: string }, pin: string): Promise<PinSetResult> {
   try {
-    await completePinResetApi({ phone: identifier.mobile, email: identifier.email, pin })
+    await completePinResetApi({ phone: identifier.phone, email: identifier.email, pin })
     return { ok: true }
   } catch (e: any) {
     return { ok: false, reason: 'not_supported', message: e?.message || 'Failed to reset PIN' }
