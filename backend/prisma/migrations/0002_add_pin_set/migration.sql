@@ -1,5 +1,0 @@
-ALTER TABLE "User" ADD COLUMN "pinSet" BOOLEAN NOT NULL DEFAULT false;
-
-UPDATE "User"
-SET "pinSet" = true
-WHERE "pinHash" IS NOT NULL;
