@@ -65,8 +65,21 @@ export default function Register() {
   }
 
   async function continueToOtp() {
+    const normalizedEmail = form.email.trim()
+
     if (!form.phone) {
       setError('Please enter your phone number.')
+      return
+    }
+
+    if (!normalizedEmail) {
+      setError('Please enter your email address.')
+      return
+    }
+
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    if (!validEmail) {
+      setError('Please enter a valid email address.')
       return
     }
 
@@ -77,7 +90,7 @@ export default function Register() {
 
     try {
       setLoading(true)
-      await registerStart({ mobile: fullPhone, email: form.email, name: form.fullName, location })
+      await registerStart({ mobile: fullPhone, email: normalizedEmail, name: form.fullName, location })
       nav(`/verify?mobile=${encodeURIComponent(fullPhone)}&mode=register`)
     } catch (e: any) {
       setError(e?.message || 'Unable to continue registration')

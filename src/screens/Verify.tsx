@@ -97,7 +97,7 @@ export default function Verify() {
 
         <h2>Enter OTP</h2>
         <p className="neo-auth-sub">
-          Enter the 6-digit code sent to your mobile.
+          Enter the 6-digit code sent to your mobile and email.
         </p>
 
         <input
