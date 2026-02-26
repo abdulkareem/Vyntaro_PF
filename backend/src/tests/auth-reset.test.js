@@ -15,6 +15,17 @@ test('forgot pin accepts phone-only payload', () => {
   assert.equal(result.success, true)
 })
 
+
+test('forgot pin accepts mobile-only payload alias', () => {
+  const result = forgotPinSchema.safeParse({ mobile: '+15551234567' })
+  assert.equal(result.success, true)
+})
+
+test('forgot pin treats blank strings as missing values', () => {
+  const result = forgotPinSchema.safeParse({ email: '   ', phone: '' })
+  assert.equal(result.success, false)
+})
+
 test('forgot pin rejects when both email and phone are missing', () => {
   const result = forgotPinSchema.safeParse({})
   assert.equal(result.success, false)
@@ -37,6 +48,18 @@ test('findUserForPinReset resolves by phone', async () => {
   const user = { id: 'u2' }
   const out = await findUserForPinReset({
     phone: '+15551234567',
+    findByEmail: async () => null,
+    findByPhone: async () => user
+  })
+
+  assert.deepEqual(out, user)
+})
+
+
+test('findUserForPinReset resolves by mobile alias', async () => {
+  const user = { id: 'u3' }
+  const out = await findUserForPinReset({
+    mobile: '+15550001111',
     findByEmail: async () => null,
     findByPhone: async () => user
   })

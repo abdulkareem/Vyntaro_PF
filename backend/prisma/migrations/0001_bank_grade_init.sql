@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('user', 'superadmin');
+CREATE TYPE "Role" AS ENUM ('user', 'admin', 'superadmin');
 
 -- CreateEnum
 CREATE TYPE "AccountType" AS ENUM ('asset', 'liability', 'equity', 'income', 'expense');
