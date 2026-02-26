@@ -90,6 +90,7 @@ model User {
   mobile                     String                  @unique
   name                       String?
   pinHash                    String?
+  pinSet                     Boolean                 @default(false)
   isActive                   Boolean                 @default(true)
   role                       Role                    @default(user)
   country                    String                  @default("US")

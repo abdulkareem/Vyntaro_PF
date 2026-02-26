@@ -15,14 +15,16 @@ export async function adminLogin(req, res, next) {
     const { mobile, pin } = req.body
     const admin = await prisma.user.findUnique({ where: { mobile } })
 
-    if (!admin || !['admin', 'superadmin'].includes(admin.role) || !admin.pinHash) {
+    if (!admin || !admin.isActive || !['admin', 'superadmin'].includes(admin.role)) {
       throw new HttpError(401, 'Invalid admin credentials')
     }
+
+    if (!admin.pinSet || !admin.pinHash) throw new HttpError(403, 'PIN setup required before login')
 
     const valid = await comparePin(pin, admin.pinHash)
     if (!valid) throw new HttpError(401, 'Invalid admin credentials')
 
-    const token = jwt.sign({ sub: admin.id, role: admin.role }, env.adminJwtSecret, { expiresIn: '12h' })
+    const token = jwt.sign({ sub: admin.id, role: admin.role, pinSet: admin.pinSet }, env.adminJwtSecret, { expiresIn: '12h' })
     return res.json({ ok: true, data: { token } })
   } catch (error) {
     return next(error)
@@ -55,7 +57,7 @@ export async function updateUser(req, res, next) {
 export async function resetUserPin(req, res, next) {
   try {
     const { pin } = z.object({ pin: z.string().regex(/^\d{4}$/) }).parse(req.body)
-    await prisma.user.update({ where: { id: req.params.userId }, data: { pinHash: await hashPin(pin) } })
+    await prisma.user.update({ where: { id: req.params.userId }, data: { pinHash: await hashPin(pin), pinSet: true } })
     return res.json({ ok: true, data: { message: 'User PIN reset successfully' } })
   } catch (error) {
     return next(error)
