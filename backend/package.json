@@ -8,7 +8,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "seed:superadmin": "node src/utils/seedSuperadmin.js",
-    "test": "node --test src/tests/*.test.js"
+    "test": "node --test src/tests/*.test.js",
+    "bootstrap:role": "node src/utils/promoteRole.js"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

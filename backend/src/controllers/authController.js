@@ -86,10 +86,11 @@ export async function login(req, res, next) {
 
 export async function startPinReset(req, res, next) {
   try {
-    const { email, phone } = req.body
+    const { email, phone, mobile } = req.body
     const user = await findUserForPinReset({
       email,
       phone,
+      mobile,
       findByEmail: (lookupEmail) => prisma.user.findUnique({ where: { email: lookupEmail } }),
       findByPhone: (lookupPhone) => prisma.user.findUnique({ where: { mobile: lookupPhone } })
     })

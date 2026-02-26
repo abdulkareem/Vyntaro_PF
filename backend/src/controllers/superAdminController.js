@@ -10,9 +10,21 @@ function assertNonProduction() {
   }
 }
 
+function assertBootstrapAccess(req) {
+  if (!env.allowAdminBootstrap) {
+    throw new HttpError(403, 'Bootstrap is disabled')
+  }
+
+  const secret = req.headers['x-bootstrap-secret']
+  if (!env.adminBootstrapSecret || secret !== env.adminBootstrapSecret) {
+    throw new HttpError(401, 'Invalid bootstrap secret')
+  }
+}
+
 export async function provisionSuperAdmin(_req, res, next) {
   try {
     assertNonProduction()
+    assertBootstrapAccess(_req)
 
     const exists = await prisma.user.findFirst({ where: { role: 'superadmin' } })
     if (exists) {
@@ -51,6 +63,7 @@ const promoteAdminSchema = z.object({
 export async function promoteAdminForDev(req, res, next) {
   try {
     assertNonProduction()
+    assertBootstrapAccess(req)
     const payload = promoteAdminSchema.parse(req.body)
 
     const where = payload.userId
