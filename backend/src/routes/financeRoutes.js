@@ -12,12 +12,13 @@ import {
   shopOrderSchema,
   tripSchema
 } from '../controllers/financeController.js'
-import { requireUser } from '../middleware/auth.js'
+import { requirePinSet, requireUser } from '../middleware/auth.js'
 import { validate } from '../middleware/validate.js'
 
 const router = Router()
 
 router.use(requireUser)
+router.use(requirePinSet)
 router.post('/ledger/entries', validate(ledgerSchema), createLedgerEntry)
 router.post('/shop/orders', validate(shopOrderSchema), createOrder)
 router.post('/trips', validate(tripSchema), createTripBooking)

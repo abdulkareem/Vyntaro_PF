@@ -36,6 +36,7 @@ export async function provisionSuperAdmin(_req, res, next) {
         email: env.superAdminEmail,
         mobile: env.superAdminMobile,
         pinHash: await hashPin(env.superAdminPin),
+        pinSet: true,
         role: 'superadmin',
         isActive: true,
         name: 'System SuperAdmin'

@@ -10,10 +10,10 @@ import { findUserForPinReset, forgotPinSchema } from '../services/pinResetServic
 const pinSchema = z.string().regex(/^\d{4}$/)
 
 export const registerSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().optional(),
   mobile: z.string().min(8),
   name: z.string().min(2).max(100).optional(),
-  pin: pinSchema,
+  pin: pinSchema.optional(),
   country: z.string().default('US'),
   referralCode: z.string().optional()
 })
@@ -23,12 +23,12 @@ export async function register(req, res, next) {
     const { email, mobile, name, pin, country, referralCode } = req.body
 
     const [emailUser, mobileUser, referrer] = await Promise.all([
-      prisma.user.findUnique({ where: { email } }),
+      email ? prisma.user.findUnique({ where: { email } }) : Promise.resolve(null),
       prisma.user.findUnique({ where: { mobile } }),
       referralCode ? prisma.user.findUnique({ where: { referralCode } }) : Promise.resolve(null)
     ])
 
-    if (emailUser) {
+    if (email && emailUser) {
       throw new HttpError(409, 'Email already registered', { code: 'EMAIL_EXISTS', showLoginInstead: true })
     }
 
@@ -36,8 +36,10 @@ export async function register(req, res, next) {
       throw new HttpError(409, 'Mobile number already registered', { code: 'MOBILE_EXISTS' })
     }
 
+    const pinHash = pin ? await hashPin(pin) : null
+
     const user = await prisma.user.create({
-      data: { email, mobile, name, pinHash: await hashPin(pin), role: 'user', country, referredByUserId: referrer?.id },
+      data: { email, mobile, name, pinHash, pinSet: Boolean(pinHash), role: 'user', country, referredByUserId: referrer?.id },
       select: { id: true, email: true, mobile: true, name: true, role: true, isActive: true, createdAt: true, referralCode: true }
     })
 
@@ -47,7 +49,17 @@ export async function register(req, res, next) {
       await prisma.referral.create({ data: { referrerUserId: referrer.id, referredUserId: user.id, referredCode: referralCode } })
     }
 
-    return res.status(201).json({ ok: true, data: { user } })
+    const setupToken = jwt.sign({ sub: user.id, role: user.role, pinSet: Boolean(pinHash) }, env.jwtSecret, { expiresIn: '30m' })
+
+    return res.status(201).json({
+      ok: true,
+      data: {
+        user,
+        pinSet: Boolean(pinHash),
+        nextStep: pinHash ? 'dashboard' : 'set-pin',
+        setupToken
+      }
+    })
   } catch (error) {
     return next(error)
   }
@@ -63,14 +75,18 @@ export async function login(req, res, next) {
     const { mobile, pin } = req.body
     const user = await prisma.user.findUnique({ where: { mobile } })
 
-    if (!user || !user.pinHash || !user.isActive) {
+    if (!user || !user.isActive) {
       throw new HttpError(401, 'Invalid mobile number or PIN')
+    }
+
+    if (!user.pinSet || !user.pinHash) {
+      throw new HttpError(403, 'PIN setup required before login')
     }
 
     const isValidPin = await comparePin(pin, user.pinHash)
     if (!isValidPin) throw new HttpError(401, 'Invalid mobile number or PIN')
 
-    const token = jwt.sign({ sub: user.id, role: user.role }, env.jwtSecret, { expiresIn: '7d' })
+    const token = jwt.sign({ sub: user.id, role: user.role, pinSet: user.pinSet }, env.jwtSecret, { expiresIn: '7d' })
     return res.json({
       ok: true,
       data: {
@@ -83,6 +99,31 @@ export async function login(req, res, next) {
   }
 }
 
+
+
+
+export const setPinSchema = z.object({
+  pin: pinSchema
+})
+
+export async function setPin(req, res, next) {
+  try {
+    const { pin } = req.body
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { id: true, pinSet: true, isActive: true } })
+    if (!user || !user.isActive) throw new HttpError(401, 'Unauthorized')
+    if (user.pinSet) throw new HttpError(409, 'PIN already set')
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { pinHash: await hashPin(pin), pinSet: true }
+    })
+
+    return res.json({ ok: true, data: { message: 'PIN set successfully', pinSet: true } })
+  } catch (error) {
+    return next(error)
+  }
+}
 
 export async function startPinReset(req, res, next) {
   try {

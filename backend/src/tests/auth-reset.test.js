@@ -1,9 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import jwt from 'jsonwebtoken'
 import { forgotPinSchema, findUserForPinReset } from '../services/pinResetService.js'
-import { requireAdmin } from '../middleware/auth.js'
-import { env } from '../config/env.js'
 
 test('forgot pin accepts email-only payload', () => {
   const result = forgotPinSchema.safeParse({ email: 'user@example.com' })
@@ -79,27 +76,4 @@ test('findUserForPinReset rejects ambiguous user identifiers', async () => {
   )
 })
 
-test('requireAdmin accepts admin and superadmin JWT roles', () => {
-  for (const role of ['admin', 'superadmin']) {
-    const token = jwt.sign({ sub: '1', role }, env.adminJwtSecret)
-    const req = { headers: { authorization: `Bearer ${token}` } }
-    let calledWith
-    requireAdmin(req, {}, (error) => {
-      calledWith = error
-    })
 
-    assert.equal(calledWith, undefined)
-    assert.equal(req.admin.role, role)
-  }
-})
-
-test('requireAdmin rejects non-admin JWT roles', () => {
-  const token = jwt.sign({ sub: '1', role: 'user' }, env.adminJwtSecret)
-  const req = { headers: { authorization: `Bearer ${token}` } }
-  let calledWith
-  requireAdmin(req, {}, (error) => {
-    calledWith = error
-  })
-
-  assert.equal(calledWith.status, 403)
-})

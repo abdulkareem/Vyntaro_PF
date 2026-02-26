@@ -16,6 +16,7 @@ async function run() {
       name: 'System SuperAdmin',
       role: 'superadmin',
       pinHash: await hashPin(env.superAdminPin),
+      pinSet: true,
       isActive: true
     }
   })
