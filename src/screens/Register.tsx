@@ -28,7 +28,8 @@ export default function Register() {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await checkIdentity({ mobile: fullPhone, email: form.email || undefined })
+        const email = form.email.trim()
+        const res = await checkIdentity({ mobile: fullPhone, email: email || undefined })
         setIdentityStatus(res.exists ? 'exists' : 'new')
       } catch {
         setIdentityStatus('unknown')

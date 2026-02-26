@@ -3,6 +3,9 @@ export type RegisterStartInput = {
   email?: string
   country?: string
   region?: string
+  deliveryChannels?: Array<'phone' | 'email'>
+  sendOtpToPhone?: boolean
+  sendOtpToEmail?: boolean
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'

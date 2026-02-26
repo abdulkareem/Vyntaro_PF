@@ -105,15 +105,20 @@ export function isAuthenticated(): boolean {
 }
 
 export async function registerStart(input: { mobile: string; email: string; name: string; location: LocationData }) {
+  const normalizedEmail = input.email.trim()
+
   const response = await registerStartApi({
     phone: input.mobile,
-    email: input.email || undefined
+    email: normalizedEmail || undefined,
+    deliveryChannels: ['phone', 'email'],
+    sendOtpToPhone: true,
+    sendOtpToEmail: true
   })
 
   setPendingRegistration({
     userId: response.userId,
     mobile: input.mobile,
-    email: input.email,
+    email: normalizedEmail,
     name: input.name,
     devOtp: response.devOtp
   })
