@@ -17,6 +17,8 @@ Local Development
 
 Backend Connection
 - Backend repository: https://github.com/abdulkareem/Vyntaro_PFBack
+- The backend is maintained in that separate repository and is no longer vendored inside this frontend repo.
+- Clone and run the backend separately when developing locally.
 - This frontend calls backend auth APIs from `src/services/api/authApi.ts`.
 - Configure API base URL using Vite env variable:
 
