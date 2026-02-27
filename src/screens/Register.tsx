@@ -73,15 +73,12 @@ export default function Register() {
       return
     }
 
-    if (!normalizedEmail) {
-      setError('Please enter your email address.')
-      return
-    }
-
-    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
-    if (!validEmail) {
-      setError('Please enter a valid email address.')
-      return
+    if (normalizedEmail) {
+      const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+      if (!validEmail) {
+        setError('Please enter a valid email address.')
+        return
+      }
     }
 
     if (identityStatus === 'exists') {
@@ -91,7 +88,7 @@ export default function Register() {
 
     try {
       setLoading(true)
-      await registerStart({ mobile: fullPhone, email: normalizedEmail, name: form.fullName, location })
+      await registerStart({ mobile: fullPhone, email: normalizedEmail || '', name: form.fullName, location })
       nav(`/verify?mobile=${encodeURIComponent(fullPhone)}&mode=register`)
     } catch (e: any) {
       setError(e?.message || 'Unable to continue registration')

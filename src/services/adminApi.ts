@@ -36,7 +36,7 @@ export type AdminUser = {
 
 export const adminService = {
   login(payload: { mobile: string; pin: string }) {
-    return request<{ token: string }>('/login', { method: 'POST', body: JSON.stringify(payload) })
+    return request<{ token: string; profile?: { name?: string; role?: 'ADMIN' | 'SUPER_ADMIN' } }>('/login', { method: 'POST', body: JSON.stringify(payload) })
   },
   listUsers() { return request<AdminUser[]>('/users') },
   updateUser(userId: string, payload: Partial<Pick<AdminUser, 'name' | 'email' | 'isActive'>>) {

@@ -72,14 +72,14 @@ async function postWithFallback<T>(paths: string[], body: unknown): Promise<T> {
 /* ---------------- REGISTER ---------------- */
 
 export function registerStartApi(input: RegisterStartInput) {
-  return post<{
+  return postWithFallback<{
     userId: string
     devOtp?: { phoneOtp: string; emailOtp: string }
-  }>('/api/auth/register/start', input)
+  }>(['/api/auth/register/start', '/api/auth/register', '/auth/register'], input)
 }
 
 export function verifyRegistrationApi(input: { phone: string; otp: string }) {
-  return post<{
+  return postWithFallback<{
     ok: true
     user?: {
       id: string
@@ -87,15 +87,17 @@ export function verifyRegistrationApi(input: { phone: string; otp: string }) {
       email?: string | null
       verifiedAt?: string | null
       avatarUrl?: string | null
+      pinSet?: boolean
+      role?: string
     }
     next?: string
-  }>('/api/auth/register/verify', input)
+  }>(['/api/auth/register/verify', '/api/auth/verify', '/auth/verify'], input)
 }
 
 /* ---------------- PIN ---------------- */
 
 export function setPinApi(input: { phone: string; pin: string; userId?: string; email?: string }) {
-  return post<{ ok: true }>('/api/auth/pin/set', input)
+  return postWithFallback<{ ok: true }>(['/api/auth/pin/set', '/api/auth/set-pin', '/auth/set-pin'], input)
 }
 
 export function startPinResetApi(input: { phone?: string; email?: string }) {
@@ -129,7 +131,7 @@ export function updatePinApi(input: { phone: string; oldPin: string; newPin: str
 /* ---------------- LOGIN ---------------- */
 
 export function loginApi(input: { phone: string; pin: string }) {
-  return post<{
+  return postWithFallback<{
     ok: true
     user: {
       id: string
@@ -137,9 +139,32 @@ export function loginApi(input: { phone: string; pin: string }) {
       email?: string | null
       verifiedAt?: string | null
       avatarUrl?: string | null
+      pinSet?: boolean
+      role?: string
     }
+    accessToken?: string
+    refreshToken?: string
+    expiresAt?: string
     next?: string
-  }>('/api/auth/login', input)
+  }>(['/api/auth/login', '/auth/login'], input)
+}
+
+export function refreshAuthApi(input: { refreshToken: string }) {
+  return postWithFallback<{
+    ok: true
+    user: {
+      id: string
+      phone: string
+      email?: string | null
+      verifiedAt?: string | null
+      avatarUrl?: string | null
+      pinSet?: boolean
+      role?: string
+    }
+    accessToken?: string
+    refreshToken?: string
+    expiresAt?: string
+  }>(['/api/auth/refresh', '/auth/refresh'], input)
 }
 
 /* ---------------- PROFILE ---------------- */

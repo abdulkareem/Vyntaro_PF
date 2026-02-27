@@ -12,7 +12,7 @@ import Profile from './screens/Profile'
 import ForgotPin from './screens/ForgotPin'
 import ChangePin from './screens/ChangePin'
 import Shell from './shell/Shell'
-import { isAuthenticated } from './services/auth'
+import { isAuthenticated, requiresPinSetup } from './services/auth'
 
 import AdminGuard from './admin/components/AdminGuard'
 import AdminLayout from './admin/components/AdminLayout'
@@ -30,6 +30,11 @@ function Protected({ children }: { children: JSX.Element }) {
   return children
 }
 
+function PinSetupGuard({ children }: { children: JSX.Element }) {
+  if (requiresPinSetup()) return <Navigate to="/set-pin" replace />
+  return children
+}
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -41,13 +46,13 @@ const router = createBrowserRouter([
       { path: 'set-pin', element: <SetPin /> },
       { path: 'login', element: <Login /> },
       { path: 'forgot-pin', element: <ForgotPin /> },
-      { path: 'change-pin', element: <Protected><ChangePin /></Protected> },
-      { path: 'dashboard', element: <Protected><Dashboard /></Protected> },
-      { path: 'dashboard/transactions', element: <Protected><Transactions /></Protected> },
-      { path: 'dashboard/ledgerentry', element: <Protected><LedgerEntry /></Protected> },
-      { path: 'dashboard/ledgerentry/new', element: <Protected><LedgerEntryForm /></Protected> },
-      { path: 'dashboard/analytics', element: <Protected><Analytics /></Protected> },
-      { path: 'dashboard/profile', element: <Protected><Profile /></Protected> },
+      { path: 'change-pin', element: <Protected><PinSetupGuard><ChangePin /></PinSetupGuard></Protected> },
+      { path: 'dashboard', element: <Protected><PinSetupGuard><Dashboard /></PinSetupGuard></Protected> },
+      { path: 'dashboard/transactions', element: <Protected><PinSetupGuard><Transactions /></PinSetupGuard></Protected> },
+      { path: 'dashboard/ledgerentry', element: <Protected><PinSetupGuard><LedgerEntry /></PinSetupGuard></Protected> },
+      { path: 'dashboard/ledgerentry/new', element: <Protected><PinSetupGuard><LedgerEntryForm /></PinSetupGuard></Protected> },
+      { path: 'dashboard/analytics', element: <Protected><PinSetupGuard><Analytics /></PinSetupGuard></Protected> },
+      { path: 'dashboard/profile', element: <Protected><PinSetupGuard><Profile /></PinSetupGuard></Protected> },
       { path: 'admin/login', element: <AdminLogin /> },
       {
         path: 'admin',
