@@ -1,5 +1,6 @@
 export type RegisterStartInput = {
   phone: string
+  mobile?: string
   email?: string
   country?: string
   region?: string
@@ -72,13 +73,29 @@ async function postWithFallback<T>(paths: string[], body: unknown): Promise<T> {
 /* ---------------- REGISTER ---------------- */
 
 export function registerStartApi(input: RegisterStartInput) {
+  const normalizedPhone = input.phone || input.mobile
+
+  if (!normalizedPhone) {
+    throw new Error('Phone number is required to start registration')
+  }
+
   return postWithFallback<{
     userId: string
     devOtp?: { phoneOtp: string; emailOtp: string }
-  }>(['/api/auth/register/start', '/api/auth/register', '/auth/register'], input)
+  }>(['/api/auth/register/start', '/api/auth/register', '/auth/register'], {
+    ...input,
+    phone: normalizedPhone,
+    mobile: normalizedPhone
+  })
 }
 
-export function verifyRegistrationApi(input: { phone: string; otp: string }) {
+export function verifyRegistrationApi(input: { phone?: string; mobile?: string; otp: string }) {
+  const normalizedPhone = input.phone || input.mobile
+
+  if (!normalizedPhone) {
+    throw new Error('Phone number is required for OTP verification')
+  }
+
   return postWithFallback<{
     ok: true
     user?: {
@@ -91,7 +108,11 @@ export function verifyRegistrationApi(input: { phone: string; otp: string }) {
       role?: string
     }
     next?: string
-  }>(['/api/auth/register/verify', '/api/auth/verify', '/auth/verify'], input)
+  }>(['/api/auth/register/verify', '/api/auth/verify', '/auth/verify'], {
+    ...input,
+    phone: normalizedPhone,
+    mobile: normalizedPhone
+  })
 }
 
 /* ---------------- PIN ---------------- */
@@ -173,12 +194,20 @@ export function checkIdentityApi(input: { phone: string; email?: string }) {
   return post<{ exists: boolean; phoneExists?: boolean; emailExists?: boolean }>('/api/auth/identity/check', input)
 }
 
-export function requestOtpApi(input: { phone?: string; email?: string; purpose: string; resend?: boolean }) {
-  return post<{ ok: true; code?: string }>('/api/auth/otp/request', input)
+export function requestOtpApi(input: { phone?: string; mobile?: string; email?: string; purpose: string; resend?: boolean }) {
+  const normalizedPhone = input.phone || input.mobile
+  return postWithFallback<{ ok: true; code?: string }>(['/api/auth/otp/request', '/auth/otp/request'], {
+    ...input,
+    ...(normalizedPhone ? { phone: normalizedPhone, mobile: normalizedPhone } : {})
+  })
 }
 
-export function verifyOtpApi(input: { phone?: string; email?: string; otp: string; purpose: string }) {
-  return post<{ ok: true; token?: string }>('/api/auth/otp/verify', input)
+export function verifyOtpApi(input: { phone?: string; mobile?: string; email?: string; otp: string; purpose: string }) {
+  const normalizedPhone = input.phone || input.mobile
+  return postWithFallback<{ ok: true; token?: string }>(['/api/auth/otp/verify', '/auth/otp/verify'], {
+    ...input,
+    ...(normalizedPhone ? { phone: normalizedPhone, mobile: normalizedPhone } : {})
+  })
 }
 
 export function updateProfileApi(input: {
