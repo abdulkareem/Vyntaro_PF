@@ -174,8 +174,8 @@ export function requiresPinSetup(): boolean {
   return Boolean(user?.id && !user.pinSet)
 }
 
-export async function registerStart(input: { mobile: string; email: string; name: string; location: LocationData }) {
-  const normalizedEmail = input.email.trim()
+export async function registerStart(input: { mobile: string; email?: string; name: string; location: LocationData }) {
+  const normalizedEmail = String(input.email || '').trim().toLowerCase()
   const hasEmail = Boolean(normalizedEmail)
 
   const response = await registerStartApi({
@@ -199,7 +199,8 @@ export async function registerStart(input: { mobile: string; email: string; name
 }
 
 export async function checkIdentity(input: { mobile: string; email?: string }) {
-  return checkIdentityApi({ phone: input.mobile, email: input.email })
+  const normalizedEmail = typeof input.email === 'string' ? input.email.trim().toLowerCase() : undefined
+  return checkIdentityApi({ phone: input.mobile, email: normalizedEmail })
 }
 
 export function resendRegistrationOTP(_mobile: string) {
@@ -318,8 +319,9 @@ export function currentUser(): AppUser | null {
 }
 
 export async function startPinReset(identifier: { phone?: string; email?: string }): Promise<PinResetRequestResult> {
+  const normalizedEmail = identifier.email?.trim().toLowerCase()
   try {
-    const result = await startPinResetApi({ phone: identifier.phone, email: identifier.email })
+    const result = await startPinResetApi({ phone: identifier.phone, email: normalizedEmail })
     return { ok: true, code: result.code }
   } catch (e: any) {
     const message = e?.message || 'Failed to start PIN reset.'

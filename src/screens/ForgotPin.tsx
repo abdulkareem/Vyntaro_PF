@@ -19,7 +19,11 @@ export default function ForgotPin() {
   const [showRegisterLink, setShowRegisterLink] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const payload = useMemo(() => (mode === 'phone' ? { phone: identifier } : { email: identifier }), [identifier, mode])
+  const payload = useMemo(() => (
+    mode === 'phone'
+      ? { phone: identifier }
+      : { email: identifier.trim().toLowerCase() }
+  ), [identifier, mode])
 
   const request = async () => {
     if (!identifier.trim()) {
@@ -98,7 +102,11 @@ export default function ForgotPin() {
               className="neo-control"
               placeholder={mode === 'phone' ? 'Registered phone' : 'Registered email'}
               value={identifier}
-              onChange={e => setIdentifier(mode === 'phone' ? e.target.value.replace(/\D/g, '').slice(0, 15) : e.target.value)}
+              onChange={e => setIdentifier(
+                mode === 'phone'
+                  ? e.target.value.replace(/\D/g, '').slice(0, 15)
+                  : e.target.value.trimStart()
+              )}
             />
             <button className="neo-btn neo-btn-primary" onClick={request} disabled={loading}>{loading ? 'Sending…' : 'Send OTP'}</button>
           </>

@@ -52,6 +52,7 @@ Current API-backed flows
 Notes
 - In development, the backend may return `devOtp` or OTP codes in responses for testing.
 - Added frontend wiring for identity checks, PIN reset (mobile/email), profile updates via OTP verification, and change PIN endpoint.
+- Email OTP delivery also depends on backend mailer configuration (`SMTP_*`/provider credentials) in `Vyntaro_PFBack`; if mobile OTP arrives but email OTP does not, verify backend mail transport env vars and provider logs.
 
 
 Quick production diagnostics

@@ -147,10 +147,10 @@ export default function Register() {
               />
             </div>
 
-            <input className="neo-control" placeholder="Email (optional)" value={form.email} onChange={e => update('email', e.target.value)} />
+            <input className="neo-control" placeholder="Email (optional)" value={form.email} onChange={e => update('email', e.target.value.trimStart())} />
 
             {identityStatus === 'exists' && <p className="neo-auth-sub" style={{ color: '#f59e0b' }}>Account already exists for this number. Continue to reset PIN.</p>}
-            {identityStatus === 'new' && <p className="neo-auth-sub" style={{ color: '#22c55e' }}>New personal account detected. Continue to receive OTP.</p>}
+            {identityStatus === 'new' && <p className="neo-auth-sub" style={{ color: '#22c55e' }}>New personal account detected. OTP will be sent to mobile, and to email when provided.</p>}
 
             <button className="neo-btn neo-btn-primary" onClick={continueToOtp} disabled={loading}>
               {loading ? 'Requesting OTP...' : 'Continue to OTP Verification'}
