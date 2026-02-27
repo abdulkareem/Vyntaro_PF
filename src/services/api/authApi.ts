@@ -9,44 +9,66 @@ export type RegisterStartInput = {
   sendOtpToEmail?: boolean
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').trim()
+
+function getApiBaseCandidates() {
+  const candidates = [API_BASE, '']
+  return Array.from(new Set(candidates.map(base => base.replace(/\/$/, ''))))
+}
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
+  let lastError: unknown
+  const bases = getApiBaseCandidates()
 
-  const raw = await res.text()
-  let data: unknown = null
-
-  if (raw) {
+  for (const base of bases) {
+    const requestPath = `${base}${path}`
     try {
-      data = JSON.parse(raw)
-    } catch {
-      data = raw
+      const res = await fetch(requestPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+
+      const raw = await res.text()
+      let data: unknown = null
+
+      if (raw) {
+        try {
+          data = JSON.parse(raw)
+        } catch {
+          data = raw
+        }
+      }
+
+      if (!res.ok) {
+        if (typeof data === 'object' && data) {
+          const payload = data as { error?: unknown; message?: string }
+          throw new Error(
+            payload.error
+              ? JSON.stringify(payload.error)
+              : payload.message || 'Request failed'
+          )
+        }
+
+        throw new Error(
+          typeof data === 'string' && data.trim()
+            ? data
+            : 'Request failed'
+        )
+      }
+
+      return data as T
+    } catch (error) {
+      lastError = error
+      const isLastCandidate = base === bases[bases.length - 1]
+      if (!isLastCandidate && error instanceof TypeError) {
+        continue
+      }
+      throw error
     }
   }
 
-  if (!res.ok) {
-    if (typeof data === 'object' && data) {
-      const payload = data as { error?: unknown; message?: string }
-      throw new Error(
-        payload.error
-          ? JSON.stringify(payload.error)
-          : payload.message || 'Request failed'
-      )
-    }
-
-    throw new Error(
-      typeof data === 'string' && data.trim()
-        ? data
-        : 'Request failed'
-    )
-  }
-
-  return data as T
+  throw lastError instanceof Error ? lastError : new Error('Request failed')
 }
 
 function isMissingRouteError(error: unknown): boolean {
