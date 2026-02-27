@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './baseUrl'
+import { API_BASE_URL, assertApiBaseConfigured, canUseSameOriginFallback } from './baseUrl'
 
 export type RegisterStartInput = {
   phone: string
@@ -12,7 +12,14 @@ export type RegisterStartInput = {
 }
 
 function getApiBaseCandidates() {
-  const candidates = [API_BASE_URL, '']
+  assertApiBaseConfigured()
+
+  const candidates = [API_BASE_URL]
+
+  if (canUseSameOriginFallback()) {
+    candidates.push('')
+  }
+
   return Array.from(new Set(candidates.map(base => base.replace(/\/$/, ''))))
 }
 

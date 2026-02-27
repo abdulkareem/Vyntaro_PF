@@ -25,12 +25,19 @@ Backend Connection
 ```bash
 # .env.local
 VITE_API_BASE_URL=http://localhost:4000
-# production example
-# VITE_API_BASE_URL=https://vyntaropfback-production.up.railway.app
+
+# Cloudflare Pages / production
+VITE_API_BASE_URL=https://vyntaropfback-production.up.railway.app
+
+# optional: allow same-origin relative fallback in production
+# default is false (strict mode)
+VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=false
 ```
 
-If omitted, the frontend will use same-origin relative API routes (recommended when frontend and backend are reverse-proxied under one domain).
-If you provide only a host (without `http://` or `https://`), the app now defaults to `https://` automatically.
+Important runtime behavior
+- In production, `VITE_API_BASE_URL` is required unless `VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=true` is explicitly set.
+- This prevents silent same-origin API calls to Cloudflare Pages (which would never reach Railway), a common root cause of “no backend logs / no OTP / no DB writes”.
+- In development, same-origin fallback remains enabled for convenience.
 
 Current API-backed flows
 - Register start: `POST /api/auth/register/start`
