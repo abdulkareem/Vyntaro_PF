@@ -1,4 +1,7 @@
 const RAW_API_BASE = (import.meta.env.VITE_API_BASE_URL || '').trim()
+const IS_DEV = import.meta.env.DEV
+const SAME_ORIGIN_FALLBACK_ENABLED =
+  String(import.meta.env.VITE_API_ALLOW_SAME_ORIGIN_FALLBACK || '').toLowerCase() === 'true'
 
 function normalizeBase(base: string) {
   const trimmed = base.trim()
@@ -19,6 +22,18 @@ function normalizeBase(base: string) {
 }
 
 export const API_BASE_URL = normalizeBase(RAW_API_BASE)
+
+export function canUseSameOriginFallback() {
+  return IS_DEV || SAME_ORIGIN_FALLBACK_ENABLED
+}
+
+export function assertApiBaseConfigured() {
+  if (API_BASE_URL || canUseSameOriginFallback()) return
+
+  throw new Error(
+    'VITE_API_BASE_URL is not configured. Set it to your Railway backend URL (for example: https://vyntaropfback-production.up.railway.app).'
+  )
+}
 
 export function apiUrl(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
