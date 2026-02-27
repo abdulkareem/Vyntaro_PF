@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './baseUrl'
+import { API_BASE_URL, assertApiBaseConfigured, canUseSameOriginFallback } from './baseUrl'
 
 export type RegisterStartInput = {
   phone: string
@@ -12,8 +12,22 @@ export type RegisterStartInput = {
 }
 
 function getApiBaseCandidates() {
-  const candidates = [API_BASE_URL, '']
+  assertApiBaseConfigured()
+
+  const candidates = [API_BASE_URL]
+
+  if (canUseSameOriginFallback()) {
+    candidates.push('')
+  }
+
   return Array.from(new Set(candidates.map(base => base.replace(/\/$/, ''))))
+}
+
+
+function withTimeout(ms: number) {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), ms)
+  return { controller, timeoutId }
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -23,11 +37,14 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   for (const base of bases) {
     const requestPath = `${base}${path}`
     try {
+      const { controller, timeoutId } = withTimeout(15000)
       const res = await fetch(requestPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
+        body: JSON.stringify(body),
+        mode: 'cors',
+        signal: controller.signal
+      }).finally(() => window.clearTimeout(timeoutId))
 
       const raw = await res.text()
       let data: unknown = null
@@ -61,9 +78,20 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     } catch (error) {
       lastError = error
       const isLastCandidate = base === bases[bases.length - 1]
+
+      const isAbortError = error instanceof DOMException && error.name === 'AbortError'
+      if (isAbortError) {
+        throw new Error(`Request timed out after 15s: ${requestPath}`)
+      }
+
       if (!isLastCandidate && error instanceof TypeError) {
         continue
       }
+
+      if (error instanceof TypeError) {
+        throw new Error(`Network/CORS error while reaching ${requestPath}. Verify VITE_API_BASE_URL and backend CORS allowlist for your Cloudflare domain.`)
+      }
+
       throw error
     }
   }
@@ -80,6 +108,11 @@ async function postWithFallback<T>(paths: string[], body: unknown): Promise<T> {
   let lastError: unknown
 
   for (const [index, path] of paths.entries()) {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.info('[api] trying endpoint', { path, apiBase: API_BASE_URL || '(same-origin)' })
+    }
+
     try {
       return await post<T>(path, body)
     } catch (error) {
