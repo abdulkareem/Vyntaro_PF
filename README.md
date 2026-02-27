@@ -25,9 +25,12 @@ Backend Connection
 ```bash
 # .env.local
 VITE_API_BASE_URL=http://localhost:4000
+# production example
+# VITE_API_BASE_URL=https://vyntaropfback-production.up.railway.app
 ```
 
 If omitted, the frontend will use same-origin relative API routes (recommended when frontend and backend are reverse-proxied under one domain).
+If you provide only a host (without `http://` or `https://`), the app now defaults to `https://` automatically.
 
 Current API-backed flows
 - Register start: `POST /api/auth/register/start`

@@ -1,3 +1,5 @@
+import { API_BASE_URL } from './baseUrl'
+
 export type RegisterStartInput = {
   phone: string
   mobile?: string
@@ -9,10 +11,8 @@ export type RegisterStartInput = {
   sendOtpToEmail?: boolean
 }
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').trim()
-
 function getApiBaseCandidates() {
-  const candidates = [API_BASE, '']
+  const candidates = [API_BASE_URL, '']
   return Array.from(new Set(candidates.map(base => base.replace(/\/$/, ''))))
 }
 
