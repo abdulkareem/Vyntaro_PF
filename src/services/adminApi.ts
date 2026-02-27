@@ -1,12 +1,11 @@
 import { getAdminToken } from './adminAuth'
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
+import { apiUrl } from './api/baseUrl'
 
 type ApiEnvelope<T> = { ok: boolean; data: T; error?: { message?: string } }
 
 async function request<T>(path: string, init: RequestInit = {}) {
   const token = getAdminToken()
-  const res = await fetch(`${API_BASE}/api/admin${path}`, {
+  const res = await fetch(apiUrl(`/api/admin${path}`), {
     ...init,
     headers: {
       'Content-Type': 'application/json',

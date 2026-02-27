@@ -1,8 +1,7 @@
 import { currentUser } from '../auth'
 import { fetchLedgerEntries, LedgerCategory } from './ledgerApi'
 import { getCategories } from './localFinanceStore'
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
+import { apiUrl } from './baseUrl'
 
 export type TransactionItem = {
   id: string
@@ -160,7 +159,7 @@ function buildMetricCards(categories: LedgerCategory[], entries: Awaited<ReturnT
 }
 
 async function request<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { credentials: 'include' })
+  const response = await fetch(apiUrl(path), { credentials: 'include' })
   const text = await response.text()
 
   let data: unknown = null
