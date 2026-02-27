@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import { countryDialCodes } from '../lib/countryDialCodes'
@@ -22,7 +22,8 @@ export default function Register() {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
-  const fullPhone = `${form.countryCode}${form.phone}`
+  const fullPhone = useMemo(() => `${form.countryCode}${form.phone}`, [form.countryCode, form.phone])
+
   useEffect(() => {
     if (!form.phone || form.phone.length < 8) return
 
@@ -54,8 +55,9 @@ export default function Register() {
   }
 
   async function continueToContact() {
-    if (!form.fullName) {
-      setError('Please enter your full name.')
+    const normalizedName = form.fullName.trim()
+    if (!normalizedName || normalizedName.length < 3) {
+      setError('Please enter your full legal name as per your bank profile.')
       return
     }
 
@@ -68,8 +70,8 @@ export default function Register() {
   async function continueToOtp() {
     const normalizedEmail = form.email.trim()
 
-    if (!form.phone) {
-      setError('Please enter your phone number.')
+    if (!form.phone || form.phone.length < 8) {
+      setError('Please enter a valid mobile number.')
       return
     }
 
@@ -88,10 +90,20 @@ export default function Register() {
 
     try {
       setLoading(true)
-      await registerStart({ mobile: fullPhone, email: normalizedEmail || '', name: form.fullName, location })
+      await registerStart({
+        mobile: fullPhone,
+        email: normalizedEmail || '',
+        name: form.fullName.trim(),
+        location
+      })
       nav(`/verify?mobile=${encodeURIComponent(fullPhone)}&mode=register`)
     } catch (e: any) {
-      setError(e?.message || 'Unable to continue registration')
+      const message = String(e?.message || '')
+      if (message.toLowerCase().includes('failed to fetch') || message.toLowerCase().includes('network')) {
+        setError('Unable to reach the server. Please check API URL/network and retry. OTP can only be sent when server is reachable.')
+      } else {
+        setError(message || 'Unable to continue registration')
+      }
     } finally {
       setLoading(false)
     }
@@ -101,11 +113,19 @@ export default function Register() {
     <main className="neo-auth-screen">
       <section className="neo-auth-card">
         <VyntaroLogoAnimated size={88} />
-        <h2>Create your Vyntaro account</h2>
+        <h2>Create your personal finance account</h2>
+        <p className="neo-auth-sub">Built for individual money management: secure onboarding, OTP verification, and PIN protection.</p>
 
         {step === 'profile' ? (
           <>
-            <input className="neo-control" placeholder="Full name" value={form.fullName} onChange={e => update('fullName', e.target.value)} />
+            <input
+              className="neo-control"
+              placeholder="Full legal name"
+              value={form.fullName}
+              onChange={e => update('fullName', e.target.value)}
+            />
+
+            <p className="neo-auth-sub">This app supports only individual accounts. Business-owner registration is not required.</p>
 
             <button className="neo-btn neo-btn-primary" onClick={continueToContact}>Continue</button>
           </>
@@ -127,13 +147,13 @@ export default function Register() {
               />
             </div>
 
-            <input className="neo-control" placeholder="Email" value={form.email} onChange={e => update('email', e.target.value)} />
+            <input className="neo-control" placeholder="Email (optional)" value={form.email} onChange={e => update('email', e.target.value)} />
 
-            {identityStatus === 'exists' && <p className="neo-auth-sub" style={{ color: '#f59e0b' }}>Already registered — you can reset your PIN.</p>}
-            {identityStatus === 'new' && <p className="neo-auth-sub" style={{ color: '#22c55e' }}>New account — continue registration.</p>}
+            {identityStatus === 'exists' && <p className="neo-auth-sub" style={{ color: '#f59e0b' }}>Account already exists for this number. Continue to reset PIN.</p>}
+            {identityStatus === 'new' && <p className="neo-auth-sub" style={{ color: '#22c55e' }}>New personal account detected. Continue to receive OTP.</p>}
 
             <button className="neo-btn neo-btn-primary" onClick={continueToOtp} disabled={loading}>
-              {loading ? 'Processing...' : 'Continue'}
+              {loading ? 'Requesting OTP...' : 'Continue to OTP Verification'}
             </button>
           </>
         )}
