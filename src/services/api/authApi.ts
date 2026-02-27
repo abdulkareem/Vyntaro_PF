@@ -59,12 +59,31 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
       if (!res.ok) {
         if (typeof data === 'object' && data) {
-          const payload = data as { error?: unknown; message?: string }
-          throw new Error(
-            payload.error
-              ? JSON.stringify(payload.error)
-              : payload.message || 'Request failed'
-          )
+          const payload = data as {
+            error?: unknown
+            message?: string
+            fieldErrors?: Record<string, string[] | string>
+            formErrors?: string[]
+          }
+
+          if (payload.fieldErrors && typeof payload.fieldErrors === 'object') {
+            const firstFieldErrorEntry = Object.entries(payload.fieldErrors).find(([, value]) => {
+              if (Array.isArray(value)) return Boolean(value.find(Boolean))
+              return Boolean(value)
+            })
+
+            if (firstFieldErrorEntry) {
+              const [field, value] = firstFieldErrorEntry
+              const message = Array.isArray(value) ? value.find(Boolean) : value
+              throw new Error(`${field}: ${String(message)}`)
+            }
+          }
+
+          if (Array.isArray(payload.formErrors) && payload.formErrors.length > 0) {
+            throw new Error(String(payload.formErrors[0]))
+          }
+
+          throw new Error(payload.error ? JSON.stringify(payload.error) : payload.message || 'Request failed')
         }
 
         throw new Error(
@@ -140,7 +159,10 @@ export function registerStartApi(input: RegisterStartInput) {
   }>(['/api/auth/register/start', '/api/auth/register', '/auth/register'], {
     ...input,
     phone: normalizedPhone,
-    mobile: normalizedPhone
+    mobile: normalizedPhone,
+    channels: input.deliveryChannels,
+    otpChannels: input.deliveryChannels,
+    emailAddress: input.email
   })
 }
 
@@ -177,27 +199,39 @@ export function setPinApi(input: { phone: string; pin: string; userId?: string; 
 }
 
 export function startPinResetApi(input: { phone?: string; email?: string }) {
+  const normalizedPhone = input.phone
   return postWithFallback<{ ok: true; code?: string; channel?: 'phone' | 'email' }>([
     '/api/auth/pin/reset/start',
     '/api/auth/pin/forgot/start',
     '/api/auth/reset-pin/start'
-  ], input)
+  ], {
+    ...input,
+    ...(normalizedPhone ? { phone: normalizedPhone, mobile: normalizedPhone } : {})
+  })
 }
 
 export function verifyPinResetApi(input: { phone?: string; email?: string; otp: string }) {
+  const normalizedPhone = input.phone
   return postWithFallback<{ ok: true }>([
     '/api/auth/pin/reset/verify',
     '/api/auth/pin/forgot/verify',
     '/api/auth/reset-pin/verify'
-  ], input)
+  ], {
+    ...input,
+    ...(normalizedPhone ? { phone: normalizedPhone, mobile: normalizedPhone } : {})
+  })
 }
 
 export function completePinResetApi(input: { phone?: string; email?: string; pin: string }) {
+  const normalizedPhone = input.phone
   return postWithFallback<{ ok: true }>([
     '/api/auth/pin/reset/complete',
     '/api/auth/pin/forgot/complete',
     '/api/auth/reset-pin/complete'
-  ], input)
+  ], {
+    ...input,
+    ...(normalizedPhone ? { phone: normalizedPhone, mobile: normalizedPhone } : {})
+  })
 }
 
 export function updatePinApi(input: { phone: string; oldPin: string; newPin: string }) {
