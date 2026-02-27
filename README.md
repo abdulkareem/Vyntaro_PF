@@ -27,7 +27,7 @@ Backend Connection
 VITE_API_BASE_URL=http://localhost:4000
 ```
 
-If omitted, the frontend defaults to `http://localhost:4000`.
+If omitted, the frontend will use same-origin relative API routes (recommended when frontend and backend are reverse-proxied under one domain).
 
 Current API-backed flows
 - Register start: `POST /api/auth/register/start`

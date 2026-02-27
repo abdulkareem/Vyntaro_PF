@@ -1,6 +1,5 @@
 import { addCategory, addEntry, FinanceType, getCategories, getEntries } from './localFinanceStore'
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
+import { apiUrl } from './baseUrl'
 
 export type LedgerCategory = {
   id: string
@@ -34,7 +33,7 @@ function resolveCategories(payload: ApiCategoryPayload | LedgerCategory[]): Ledg
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, init)
+  const response = await fetch(apiUrl(path), init)
   const text = await response.text()
 
   let data: unknown = null
