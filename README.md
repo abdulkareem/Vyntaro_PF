@@ -34,6 +34,8 @@ VITE_API_BASE_URL=https://vyntaropfback-production.up.railway.app
 # optional: allow same-origin relative fallback in production
 # default is false (strict mode)
 VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=false
+# optional: disable service worker during connectivity troubleshooting
+VITE_ENABLE_SW=true
 ```
 
 Important runtime behavior
@@ -56,3 +58,7 @@ Quick production diagnostics
 - In browser devtools console, verify startup log: `[api] resolved base url` contains the Railway host.
 - Registration/login errors now include the exact target URL if a network/CORS/timeout failure occurs.
 - If your backend shows no requests, confirm Railway `CORS_ORIGINS` includes your exact Cloudflare Pages domain and custom domain (if used).
+
+
+Service worker note
+- If users still run stale frontend code after deploy, set `VITE_ENABLE_SW=false` temporarily in Cloudflare Pages to force unregistration and ensure fresh API client code loads.

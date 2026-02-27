@@ -12,6 +12,8 @@
    - Multiple path fallbacks can still be useful, but without request logging in backend it becomes difficult to identify which route is actually live.
 4. **Backend repository not present in this workspace.**
    - Backend fixes below are patch-ready templates to apply in `Vyntaro_PFBack`.
+5. **Service worker caching can keep stale API client code in production.**
+   - Previous cache strategy could keep old JS bundles active after deploy, so users still execute outdated API target logic.
 
 ---
 
@@ -256,6 +258,7 @@ if (!ok) return res.status(401).json({ message: 'Invalid credentials' })
 - `VITE_API_BASE_URL=https://vyntaropfback-production.up.railway.app`
 - Do not use `:8080` in the browser API URL. Railway public HTTPS endpoint should be used as-is.
 - `VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=false` (recommended)
+- `VITE_ENABLE_SW=true` (set `false` temporarily if you need to force SW unregister during incident response)
 
 ### Railway (Backend)
 - `PORT=8080`
@@ -277,6 +280,7 @@ if (!ok) return res.status(401).json({ message: 'Invalid credentials' })
 2. **Frontend API target**
    - In browser devtools Network, submit registration.
    - Confirm request URL starts with Railway host, not Cloudflare Pages host.
+   - Clear old service worker state once: DevTools → Application → Service Workers → Unregister + Clear storage, then hard refresh.
 3. **Registration persistence**
    - Submit new phone + email.
    - Verify backend logs show `/api/auth/register/start` and DB insert/update success.

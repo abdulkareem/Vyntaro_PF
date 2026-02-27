@@ -1,4 +1,4 @@
-const CACHE = 'vyntaro-static-v3'
+const CACHE = 'vyntaro-static-v4'
 const CORE_ASSETS = ['/', '/index.html']
 
 self.addEventListener('install', event => {
@@ -15,6 +15,19 @@ self.addEventListener('activate', event => {
   )
 })
 
+function shouldHandle(request) {
+  if (request.method !== 'GET') return false
+  const url = new URL(request.url)
+
+  // Never intercept cross-origin requests (e.g. Railway API)
+  if (url.origin !== self.location.origin) return false
+
+  // Never cache API responses
+  if (url.pathname.startsWith('/api/')) return false
+
+  return true
+}
+
 function networkFirst(request) {
   return fetch(request)
     .then(response => {
@@ -25,21 +38,23 @@ function networkFirst(request) {
     .catch(() => caches.match(request))
 }
 
-function cacheFirst(request) {
+function staleWhileRevalidate(request) {
   return caches.match(request).then(cached => {
-    if (cached) return cached
+    const network = fetch(request)
+      .then(response => {
+        const copy = response.clone()
+        caches.open(CACHE).then(cache => cache.put(request, copy)).catch(() => {})
+        return response
+      })
+      .catch(() => undefined)
 
-    return fetch(request).then(response => {
-      const copy = response.clone()
-      caches.open(CACHE).then(cache => cache.put(request, copy)).catch(() => {})
-      return response
-    })
+    return cached || network
   })
 }
 
 self.addEventListener('fetch', event => {
   const request = event.request
-  if (request.method !== 'GET') return
+  if (!shouldHandle(request)) return
 
   const acceptsHtml = request.headers.get('accept')?.includes('text/html')
   if (request.mode === 'navigate' || acceptsHtml) {
@@ -47,5 +62,6 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  event.respondWith(cacheFirst(request))
+  // Prefer fresh JS/CSS so frontend picks up latest API config quickly.
+  event.respondWith(staleWhileRevalidate(request))
 })
