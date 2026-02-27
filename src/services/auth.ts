@@ -176,13 +176,15 @@ export function requiresPinSetup(): boolean {
 
 export async function registerStart(input: { mobile: string; email: string; name: string; location: LocationData }) {
   const normalizedEmail = input.email.trim()
+  const hasEmail = Boolean(normalizedEmail)
 
   const response = await registerStartApi({
     phone: input.mobile,
-    email: normalizedEmail || undefined,
-    deliveryChannels: ['phone', 'email'],
+    mobile: input.mobile,
+    email: hasEmail ? normalizedEmail : undefined,
+    deliveryChannels: hasEmail ? ['phone', 'email'] : ['phone'],
     sendOtpToPhone: true,
-    sendOtpToEmail: true
+    sendOtpToEmail: hasEmail
   })
 
   setPendingRegistration({
