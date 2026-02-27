@@ -33,6 +33,33 @@ export async function register(req, res, next) {
     }
 
     if (mobileUser) {
+      if (!mobileUser.isActive) {
+        throw new HttpError(403, 'Account is inactive. Please contact support.', { code: 'ACCOUNT_INACTIVE' })
+      }
+
+      if (!mobileUser.pinSet || !mobileUser.pinHash) {
+        const setupToken = jwt.sign({ sub: mobileUser.id, role: mobileUser.role, pinSet: false }, env.jwtSecret, { expiresIn: '30m' })
+
+        return res.status(200).json({
+          ok: true,
+          data: {
+            user: {
+              id: mobileUser.id,
+              email: mobileUser.email,
+              mobile: mobileUser.mobile,
+              name: mobileUser.name,
+              role: mobileUser.role,
+              isActive: mobileUser.isActive,
+              createdAt: mobileUser.createdAt,
+              referralCode: mobileUser.referralCode
+            },
+            pinSet: false,
+            nextStep: 'set-pin',
+            setupToken
+          }
+        })
+      }
+
       throw new HttpError(409, 'Mobile number already registered', { code: 'MOBILE_EXISTS' })
     }
 
