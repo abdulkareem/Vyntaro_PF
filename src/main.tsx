@@ -14,10 +14,19 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>
 )
 
+const ENABLE_SW = String(import.meta.env.VITE_ENABLE_SW || 'true').toLowerCase() === 'true'
+
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', async () => {
     try {
+      if (!ENABLE_SW) {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map(r => r.unregister()))
+        return
+      }
+
       const registration = await navigator.serviceWorker.register('/sw.js')
+      await registration.update()
 
       registration.addEventListener('updatefound', () => {
         const nextWorker = registration.installing

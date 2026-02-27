@@ -25,12 +25,23 @@ Backend Connection
 ```bash
 # .env.local
 VITE_API_BASE_URL=http://localhost:4000
-# production example
-# VITE_API_BASE_URL=https://vyntaropfback-production.up.railway.app
+
+# Cloudflare Pages / production
+VITE_API_BASE_URL=https://vyntaropfback-production.up.railway.app
+# IMPORTANT: do not append :8080 for public Railway URL in browser clients
+# (Railway edge serves HTTPS on 443 and forwards internally)
+
+# optional: allow same-origin relative fallback in production
+# default is false (strict mode)
+VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=false
+# optional: disable service worker during connectivity troubleshooting
+VITE_ENABLE_SW=true
 ```
 
-If omitted, the frontend will use same-origin relative API routes (recommended when frontend and backend are reverse-proxied under one domain).
-If you provide only a host (without `http://` or `https://`), the app now defaults to `https://` automatically.
+Important runtime behavior
+- In production, `VITE_API_BASE_URL` is required unless `VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=true` is explicitly set.
+- This prevents silent same-origin API calls to Cloudflare Pages (which would never reach Railway), a common root cause of “no backend logs / no OTP / no DB writes”.
+- In development, same-origin fallback remains enabled for convenience.
 
 Current API-backed flows
 - Register start: `POST /api/auth/register/start`
@@ -41,3 +52,13 @@ Current API-backed flows
 Notes
 - In development, the backend may return `devOtp` or OTP codes in responses for testing.
 - Added frontend wiring for identity checks, PIN reset (mobile/email), profile updates via OTP verification, and change PIN endpoint.
+
+
+Quick production diagnostics
+- In browser devtools console, verify startup log: `[api] resolved base url` contains the Railway host.
+- Registration/login errors now include the exact target URL if a network/CORS/timeout failure occurs.
+- If your backend shows no requests, confirm Railway `CORS_ORIGINS` includes your exact Cloudflare Pages domain and custom domain (if used).
+
+
+Service worker note
+- If users still run stale frontend code after deploy, set `VITE_ENABLE_SW=false` temporarily in Cloudflare Pages to force unregistration and ensure fresh API client code loads.
