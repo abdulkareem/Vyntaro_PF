@@ -2,6 +2,7 @@ import {
   checkIdentityApi,
   completePinResetApi,
   loginApi,
+  refreshAuthApi,
   registerStartApi,
   requestOtpApi,
   setPinApi,
@@ -14,6 +15,8 @@ import {
 
 type LocationData = { lat: number; lon: number } | null
 
+type AuthStatus = 'online_verified' | 'offline_authenticated'
+
 export type AppUser = {
   id: string
   mobile: string
@@ -22,9 +25,18 @@ export type AppUser = {
   name?: string
   avatarUrl?: string | null
   trustedDevices: string[]
+  pinSet: boolean
+  role?: string
 }
 
-type Session = { user: AppUser } | null
+type Session = {
+  user: AppUser
+  accessToken?: string
+  refreshToken?: string
+  expiresAt?: string
+  authStatus: AuthStatus
+  lastValidatedAt: string
+} | null
 
 type PendingRegistration = {
   userId?: string
@@ -35,15 +47,24 @@ type PendingRegistration = {
 }
 
 type LoginResult =
-  | { ok: true; user: AppUser }
-  | { ok: false; reason: 'invalid' }
+  | { ok: true; user: AppUser; mode: AuthStatus }
+  | { ok: false; reason: 'invalid' | 'pin_not_set' | 'offline_unavailable' }
 
 type PinResetRequestResult = { ok: true; code?: string } | { ok: false; reason: 'not_found' | 'throttled' | 'not_supported'; message?: string }
 type PinResetVerifyResult = { ok: true } | { ok: false; reason: 'expired' | 'invalid' | 'not_supported'; message?: string }
 type PinSetResult = { ok: true } | { ok: false; reason?: 'not_supported'; message?: string }
 
+type OfflineCredential = {
+  mobile: string
+  salt: string
+  verifier: string
+  cachedUser: AppUser
+  updatedAt: string
+}
+
 const SESSION_KEY = 'session'
 const PENDING_REG_KEY = 'pending_registration'
+const OFFLINE_AUTH_KEY = 'offline_auth_credential'
 
 const storage = {
   read<T>(k: string, d: T): T {
@@ -62,8 +83,8 @@ function notifyAuthChanged() {
   window.dispatchEvent(new Event('auth-changed'))
 }
 
-function setSession(user: AppUser) {
-  storage.write<Session>(SESSION_KEY, { user })
+function setSession(session: NonNullable<Session>) {
+  storage.write<Session>(SESSION_KEY, session)
   notifyAuthChanged()
 }
 
@@ -79,7 +100,7 @@ function clearPendingRegistration() {
   storage.del(PENDING_REG_KEY)
 }
 
-function mapUser(input: { id: string; phone: string; email?: string | null; verifiedAt?: string | null; avatarUrl?: string | null }, name?: string): AppUser {
+function mapUser(input: { id: string; phone: string; email?: string | null; verifiedAt?: string | null; avatarUrl?: string | null; pinSet?: boolean; role?: string }, name?: string): AppUser {
   return {
     id: input.id,
     mobile: input.phone,
@@ -87,12 +108,55 @@ function mapUser(input: { id: string; phone: string; email?: string | null; veri
     verifiedAt: input.verifiedAt,
     name,
     avatarUrl: input.avatarUrl,
-    trustedDevices: []
+    trustedDevices: [],
+    pinSet: Boolean(input.pinSet),
+    role: input.role
   }
+}
+
+function isNetworkError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+  return message.includes('failed to fetch') || message.includes('networkerror') || message.includes('network request failed')
+}
+
+function toBase64(bytes: Uint8Array) {
+  return btoa(String.fromCharCode(...bytes))
+}
+
+
+async function sha256(value: string) {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
+  return toBase64(new Uint8Array(hash))
+}
+
+async function createOfflineCredential(mobile: string, pin: string, user: AppUser) {
+  const saltBytes = crypto.getRandomValues(new Uint8Array(16))
+  const salt = toBase64(saltBytes)
+  const verifier = await sha256(`${mobile}:${pin}:${salt}`)
+  const credential: OfflineCredential = {
+    mobile,
+    salt,
+    verifier,
+    cachedUser: user,
+    updatedAt: new Date().toISOString()
+  }
+  storage.write(OFFLINE_AUTH_KEY, credential)
+}
+
+async function canLoginOffline(mobile: string, pin: string): Promise<AppUser | null> {
+  const credential = storage.read<OfflineCredential | null>(OFFLINE_AUTH_KEY, null)
+  if (!credential || credential.mobile !== mobile) return null
+  const recomputed = await sha256(`${mobile}:${pin}:${credential.salt}`)
+  if (recomputed !== credential.verifier) return null
+  return credential.cachedUser.pinSet ? credential.cachedUser : null
 }
 
 export function getSession(): Session {
   return storage.read<Session>(SESSION_KEY, null)
+}
+
+export function getAuthStatus(): AuthStatus | null {
+  return getSession()?.authStatus ?? null
 }
 
 export function logout() {
@@ -101,7 +165,13 @@ export function logout() {
 }
 
 export function isAuthenticated(): boolean {
-  return !!getSession()?.user?.id
+  const user = getSession()?.user
+  return Boolean(user?.id && user.pinSet)
+}
+
+export function requiresPinSetup(): boolean {
+  const user = getSession()?.user
+  return Boolean(user?.id && !user.pinSet)
 }
 
 export async function registerStart(input: { mobile: string; email: string; name: string; location: LocationData }) {
@@ -149,7 +219,17 @@ export async function setPin(mobile: string, pin: string): Promise<PinSetResult>
     email: pending?.email
   })
   const login = await loginApi({ phone: mobile, pin })
-  setSession(mapUser(login.user, pending?.name))
+  const user = mapUser(login.user, pending?.name)
+  const now = new Date().toISOString()
+  setSession({
+    user,
+    accessToken: login.accessToken,
+    refreshToken: login.refreshToken,
+    expiresAt: login.expiresAt,
+    authStatus: 'online_verified',
+    lastValidatedAt: now
+  })
+  await createOfflineCredential(mobile, pin, user)
   clearPendingRegistration()
   return { ok: true as const }
 }
@@ -159,21 +239,75 @@ export async function loginWithPin(mobile: string, pin: string): Promise<LoginRe
     const res = await loginApi({ phone: mobile, pin })
     const pending = getPendingRegistration()
     const user = mapUser(res.user, pending?.name)
-    setSession(user)
-    return { ok: true as const, user }
-  } catch {
+    if (!user.pinSet) return { ok: false, reason: 'pin_not_set' }
+
+    const now = new Date().toISOString()
+    setSession({
+      user,
+      accessToken: res.accessToken,
+      refreshToken: res.refreshToken,
+      expiresAt: res.expiresAt,
+      authStatus: 'online_verified',
+      lastValidatedAt: now
+    })
+    await createOfflineCredential(mobile, pin, user)
+    return { ok: true as const, user, mode: 'online_verified' }
+  } catch (error) {
+    if (!navigator.onLine || isNetworkError(error)) {
+      const offlineUser = await canLoginOffline(mobile, pin)
+      if (offlineUser) {
+        setSession({
+          user: offlineUser,
+          authStatus: 'offline_authenticated',
+          lastValidatedAt: new Date().toISOString()
+        })
+        return { ok: true as const, user: offlineUser, mode: 'offline_authenticated' }
+      }
+      return { ok: false as const, reason: 'offline_unavailable' as const }
+    }
+
     return { ok: false as const, reason: 'invalid' as const }
+  }
+}
+
+export async function revalidateSession(): Promise<boolean> {
+  const current = getSession()
+  if (!current?.refreshToken || !navigator.onLine) return false
+
+  try {
+    const refreshed = await refreshAuthApi({ refreshToken: current.refreshToken })
+    const user = mapUser(refreshed.user, current.user.name)
+    if (!user.pinSet) {
+      logout()
+      return false
+    }
+    setSession({
+      user,
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken || current.refreshToken,
+      expiresAt: refreshed.expiresAt,
+      authStatus: 'online_verified',
+      lastValidatedAt: new Date().toISOString()
+    })
+    return true
+  } catch {
+    return false
   }
 }
 
 export function completeOtpSession(input: { id?: string; phone: string; name?: string; email?: string }) {
   setSession({
-    id: input.id || input.phone,
-    mobile: input.phone,
-    email: input.email,
-    name: input.name,
-    avatarUrl: null,
-    trustedDevices: []
+    user: {
+      id: input.id || input.phone,
+      mobile: input.phone,
+      email: input.email,
+      name: input.name,
+      avatarUrl: null,
+      trustedDevices: [],
+      pinSet: false
+    },
+    authStatus: 'online_verified',
+    lastValidatedAt: new Date().toISOString()
   })
 }
 
@@ -252,6 +386,12 @@ export async function updateProfile(input: { email?: string; mobile?: string; av
     otpToken: input.otpToken
   })
 
-  setSession({ ...user, mobile: result.user.phone, email: result.user.email, avatarUrl: result.user.avatarUrl })
+  const current = getSession()
+  if (!current) return result.user
+
+  setSession({
+    ...current,
+    user: { ...user, mobile: result.user.phone, email: result.user.email, avatarUrl: result.user.avatarUrl }
+  })
   return result.user
 }

@@ -3,7 +3,7 @@ const ADMIN_PROFILE_KEY = 'admin_profile'
 
 export type AdminProfile = {
   name: string
-  role: 'superadmin'
+  role: 'ADMIN' | 'SUPER_ADMIN'
 }
 
 export function getAdminToken(): string | null {

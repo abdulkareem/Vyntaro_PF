@@ -16,10 +16,14 @@ export default function AdminLogin() {
     setError('')
     try {
       const response = await adminService.login({ mobile, pin })
-      setAdminSession(response.token, { name: 'SuperAdmin', role: 'superadmin' })
+      const role = response.profile?.role
+      if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+        throw new Error('Access denied: admin role required')
+      }
+      setAdminSession(response.token, { name: response.profile?.name || 'Administrator', role })
       navigate('/admin/dashboard')
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || 'Invalid credentials')
+      setError(e instanceof Error ? e.message : 'Invalid credentials')
     } finally {
       setLoading(false)
     }

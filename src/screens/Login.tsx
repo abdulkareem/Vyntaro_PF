@@ -20,6 +20,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [remainingAttempts, setRemainingAttempts] = useState(MAX_ATTEMPTS)
+  const [authMode, setAuthMode] = useState<'online_verified' | 'offline_authenticated' | null>(null)
   const pinRefs = useRef<Array<HTMLInputElement | null>>([])
 
   const pinValue = useMemo(() => pin.join(''), [pin])
@@ -74,12 +75,24 @@ export default function Login() {
     try {
       const res = await loginWithPin(fullPhone, pinValue)
       if (res.ok) {
+        setAuthMode(res.mode)
         localStorage.setItem('auth_phone', fullPhone)
         localStorage.setItem('auth_user_mobile', res.user.mobile)
         localStorage.setItem('auth_user_id', res.user.id)
         localStorage.setItem('auth_user_email', res.user.email || '')
         localStorage.setItem(ATTEMPT_KEY, String(MAX_ATTEMPTS))
         nav('/dashboard', { replace: true })
+        return
+      }
+
+      if (res.reason === 'pin_not_set') {
+        setError('PIN setup is required before login. Please complete PIN setup first.')
+        nav(`/set-pin?mobile=${encodeURIComponent(fullPhone)}`)
+        return
+      }
+
+      if (res.reason === 'offline_unavailable') {
+        setError('Offline login is only available after one successful online login on this device.')
         return
       }
 
@@ -105,6 +118,7 @@ export default function Login() {
         <h2>Secure Login</h2>
         <p className="neo-auth-sub">
           Enter your registered number and 4-digit login PIN.
+          {!navigator.onLine ? ' You are offline. Same-device login is available if you logged in online before.' : ''}
         </p>
 
         <div className="neo-phone-wrap">
@@ -160,6 +174,10 @@ export default function Login() {
         <button className="neo-btn neo-btn-link" onClick={() => nav(resetLink)}>
           Reset PIN via OTP
         </button>
+
+        {authMode === 'offline_authenticated' && (
+          <p className="neo-auth-sub">Logged in using offline device trust. Sync will revalidate when internet returns.</p>
+        )}
 
         {remainingAttempts < MAX_ATTEMPTS && (
           <p className="neo-auth-sub">
