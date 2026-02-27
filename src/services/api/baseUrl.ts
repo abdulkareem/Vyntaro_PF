@@ -4,7 +4,11 @@ function normalizeBase(base: string) {
   const trimmed = base.trim()
   if (!trimmed) return ''
 
-  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  const isLocalHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/|$)/i.test(trimmed)
+
+  const withScheme = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `${isLocalHost ? 'http' : 'https'}://${trimmed}`
 
   try {
     const parsed = new URL(withScheme)
