@@ -254,12 +254,14 @@ if (!ok) return res.status(401).json({ message: 'Invalid credentials' })
 
 ### Cloudflare Pages (Frontend)
 - `VITE_API_BASE_URL=https://vyntaropfback-production.up.railway.app`
+- Do not use `:8080` in the browser API URL. Railway public HTTPS endpoint should be used as-is.
 - `VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=false` (recommended)
 
 ### Railway (Backend)
 - `PORT=8080`
 - `NODE_ENV=production`
 - `CORS_ORIGINS=https://<your-cloudflare-pages-domain>,https://<custom-domain-if-any>`
+- Exact origin matching reminder: protocol + hostname must match exactly; no trailing slash.
 - DB vars (e.g. `DATABASE_URL`)
 - JWT vars: `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`
 - Mail vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`

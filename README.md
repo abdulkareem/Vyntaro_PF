@@ -28,6 +28,8 @@ VITE_API_BASE_URL=http://localhost:4000
 
 # Cloudflare Pages / production
 VITE_API_BASE_URL=https://vyntaropfback-production.up.railway.app
+# IMPORTANT: do not append :8080 for public Railway URL in browser clients
+# (Railway edge serves HTTPS on 443 and forwards internally)
 
 # optional: allow same-origin relative fallback in production
 # default is false (strict mode)
@@ -48,3 +50,9 @@ Current API-backed flows
 Notes
 - In development, the backend may return `devOtp` or OTP codes in responses for testing.
 - Added frontend wiring for identity checks, PIN reset (mobile/email), profile updates via OTP verification, and change PIN endpoint.
+
+
+Quick production diagnostics
+- In browser devtools console, verify startup log: `[api] resolved base url` contains the Railway host.
+- Registration/login errors now include the exact target URL if a network/CORS/timeout failure occurs.
+- If your backend shows no requests, confirm Railway `CORS_ORIGINS` includes your exact Cloudflare Pages domain and custom domain (if used).
