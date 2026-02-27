@@ -1,7 +1,17 @@
 const RAW_API_BASE = (import.meta.env.VITE_API_BASE_URL || '').trim()
 
 function normalizeBase(base: string) {
-  return base.replace(/\/+$/, '')
+  const trimmed = base.trim()
+  if (!trimmed) return ''
+
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+
+  try {
+    const parsed = new URL(withScheme)
+    return parsed.origin
+  } catch {
+    return trimmed.replace(/\/+$/, '')
+  }
 }
 
 export const API_BASE_URL = normalizeBase(RAW_API_BASE)
