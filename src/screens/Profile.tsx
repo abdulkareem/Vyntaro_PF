@@ -96,7 +96,7 @@ export default function Profile() {
             <input className="neo-control" placeholder="Profile Photo URL" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} />
             <button className="neo-btn neo-btn-ghost" onClick={sendOtp} disabled={loading}>Send OTP</button>
             <input className="neo-control" placeholder="Enter OTP" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} />
-            <button className="neo-btn neo-btn-ghost" onClick={verifyOtp} disabled={loading || otp.length < 4}>Verify OTP</button>
+            <button className="neo-btn neo-btn-ghost" onClick={verifyOtp} disabled={loading || otp.length < 6}>Verify OTP</button>
             <button className="neo-btn neo-btn-primary" onClick={saveChanges} disabled={loading || !hasChanges}>Save Changes</button>
           </div>
         )}
