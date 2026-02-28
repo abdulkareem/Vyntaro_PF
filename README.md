@@ -40,8 +40,8 @@ VITE_ENABLE_SW=true
 
 Important runtime behavior
 - In production, `VITE_API_BASE_URL` is required unless `VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=true` is explicitly set.
-- When `VITE_API_BASE_URL` is set, requests first target that backend; if the request fails at the network/CORS layer, the client now attempts one same-origin retry (`/api/...`) as a resilience fallback.
-- This still avoids silent same-origin-first behavior while reducing hard failures during transient API host or CORS misconfiguration.
+- Requests use `VITE_API_BASE_URL` by default. A same-origin retry (`/api/...`) is attempted only when fallback is explicitly enabled (`VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=true`) or when running in development.
+- Keeping production fallback opt-in prevents accidental duplicate mutation retries during CORS/network failures.
 - In development, same-origin fallback remains enabled for convenience.
 
 Current API-backed flows
