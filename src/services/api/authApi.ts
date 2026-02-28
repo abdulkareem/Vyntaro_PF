@@ -16,7 +16,7 @@ function getApiBaseCandidates() {
 
   const candidates = [API_BASE_URL]
 
-  if (canUseSameOriginFallback() || API_BASE_URL) {
+  if (canUseSameOriginFallback()) {
     candidates.push('')
   }
 
