@@ -24,6 +24,7 @@ export default function BalanceCard({
   metricCards
 }: BalanceCardProps) {
   const currencyCode = resolveCurrencyCode()
+  const hasZeroState = balance === 0 && income === 0 && expense === 0
 
   return (
     <div className="dashboard-card balance-card fade-in-up">
@@ -35,6 +36,7 @@ export default function BalanceCard({
         <Link to="/dashboard/balance" className="card-inline-link">Balance details →</Link>
       </div>
       <h2 className="balance-value">{formatCurrency(balance, currencyCode)}</h2>
+      {hasZeroState ? <p className="dashboard-subtitle">No monthly transactions yet. Values will update automatically once backend summary data is available.</p> : null}
 
       <div className="balance-metrics balance-metrics-extended">
         <Link to="/dashboard/analytics/income" className="balance-metric income metric-link">
