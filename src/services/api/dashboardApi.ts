@@ -1,6 +1,6 @@
 import { currentUser } from '../auth'
 import { fetchLedgerCategories, fetchLedgerEntries, LedgerCategory } from './ledgerApi'
-import { requestJson } from './httpClient'
+import { ApiRequestError, requestJson } from './httpClient'
 
 export type TransactionItem = {
   id: string
@@ -130,6 +130,10 @@ export type DashboardData = {
   budgets: BudgetItem[]
   analytics: Array<{ name: string; income: number; expense: number }>
   insights: DashboardInsights
+  ledgerCategoriesState: {
+    message: string | null
+    retryable: boolean
+  }
 }
 
 function fallbackAvatar(seed: string) {
@@ -159,6 +163,15 @@ function buildMetricCards(categories: LedgerCategory[], entries: Awaited<ReturnT
 
 async function fetchDashboardInsight<T>(path: string) {
   return requestJson<T>(path, { useCredentials: true })
+}
+
+async function withSingleRetry<T>(request: () => Promise<T>, shouldRetry: (error: unknown) => boolean) {
+  try {
+    return await request()
+  } catch (error) {
+    if (!shouldRetry(error)) throw error
+    return request()
+  }
 }
 
 function inferLendingKind(name: string): 'lent' | 'loan' | null {
@@ -218,12 +231,36 @@ export async function fetchDashboard(): Promise<DashboardData> {
 
   await new Promise(resolve => setTimeout(resolve, 120))
 
-  const categories = (await Promise.all([
-    fetchLedgerCategories('expense'),
-    fetchLedgerCategories('income'),
-    fetchLedgerCategories('bill'),
-    fetchLedgerCategories('ledger')
-  ])).flat()
+  const categoryTypes = ['expense', 'income', 'bill', 'ledger']
+  const categoryResults = await Promise.allSettled(
+    categoryTypes.map(type => withSingleRetry(
+      () => fetchLedgerCategories(type),
+      error => error instanceof ApiRequestError && error.status >= 500
+    ))
+  )
+
+  let ledgerCategoriesState: DashboardData['ledgerCategoriesState'] = { message: null, retryable: false }
+  const categoryFailures = categoryResults.filter(result => result.status === 'rejected')
+  const firstCategoryError = categoryFailures[0]?.status === 'rejected' ? categoryFailures[0].reason : null
+
+  if (firstCategoryError instanceof ApiRequestError && firstCategoryError.status === 401) {
+    throw firstCategoryError
+  }
+
+  if (categoryFailures.length > 0) {
+    const hasServerError = categoryFailures.some(
+      result => result.status === 'rejected' && result.reason instanceof ApiRequestError && result.reason.status >= 500
+    )
+
+    ledgerCategoriesState = hasServerError
+      ? { message: 'Categories are temporarily unavailable. Retry to load them again.', retryable: true }
+      : { message: 'No categories yet.', retryable: false }
+  }
+
+  const categories = categoryResults
+    .filter((result): result is PromiseFulfilledResult<LedgerCategory[]> => result.status === 'fulfilled')
+    .flatMap(result => result.value)
+
   const entries = await fetchLedgerEntries()
   const metricCards = buildMetricCards(categories, entries)
   const income = entries
@@ -316,6 +353,7 @@ export async function fetchDashboard(): Promise<DashboardData> {
       { name: 'Mar', income: 5000, expense: 2800 },
       { name: 'Apr', income: 4780, expense: 3908 }
     ],
-    insights
+    insights,
+    ledgerCategoriesState
   }
 }

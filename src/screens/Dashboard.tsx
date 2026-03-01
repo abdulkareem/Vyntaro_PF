@@ -38,16 +38,36 @@ function largestBreakdownAmount(items: ExpenseBreakdownItem[]) {
 }
 
 export default function Dashboard() {
-  const { data, loading, error, refresh } = useDashboardData()
+  const { data, loading, error, refresh, retryable } = useDashboardData()
   const [dateOffset, setDateOffset] = useState(1)
   const currencyCode = useMemo(resolveCurrencyCode, [])
 
-  if (loading) return <main className="dashboard-page"><p className="loading-text">Loading dashboard…</p></main>
+  if (loading) {
+    return (
+      <main className="dashboard-page" aria-busy="true" aria-live="polite">
+        <DashboardTabs />
+        <section className="dashboard-card fade-in-up">
+          <p className="loading-text">Loading dashboard…</p>
+        </section>
+        <section className="dashboard-card fade-in-up">
+          <p className="dashboard-subtitle">Loading balances and insights…</p>
+        </section>
+        <section className="dashboard-card fade-in-up">
+          <p className="dashboard-subtitle">Loading category breakdown…</p>
+        </section>
+      </main>
+    )
+  }
   if (error) {
     return (
       <main className="dashboard-page">
-        <p className="error">{error}</p>
-        <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry dashboard load</button>
+        <DashboardTabs />
+        <section className="dashboard-card fade-in-up">
+          <p className="error">{error}</p>
+          {retryable ? (
+            <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry dashboard load</button>
+          ) : null}
+        </section>
       </main>
     )
   }
@@ -90,8 +110,16 @@ export default function Dashboard() {
 
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Expense Breakdown</h3>
+        {data.ledgerCategoriesState.message ? (
+          <div>
+            <p className="dashboard-subtitle">{data.ledgerCategoriesState.message}</p>
+            {data.ledgerCategoriesState.retryable ? (
+              <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry categories</button>
+            ) : null}
+          </div>
+        ) : null}
         {data.insights.expenseBreakdown.length === 0 ? (
-          <p className="dashboard-subtitle">No expense categories found for this month.</p>
+          <p className="dashboard-subtitle">No categories yet.</p>
         ) : (
           <div className="expense-breakdown-list">
             {data.insights.expenseBreakdown.map(item => (
