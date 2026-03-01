@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DashboardData, fetchDashboard } from '../services/api/dashboardApi'
+import { createDashboardFallback, DashboardData, fetchDashboard } from '../services/api/dashboardApi'
+import { currentUser } from '../services/auth'
 import { ApiRequestError } from '../services/api/httpClient'
 import { isAuthenticated } from '../services/auth'
 
@@ -12,19 +13,32 @@ type DashboardErrorState = {
 
 const DASHBOARD_CACHE_TTL_MS = 60_000
 
-let dashboardCache: {
+type CacheEntry = {
   data: DashboardData
   updatedAt: number
-} | null = null
-
-export function clearDashboardCache() {
-  dashboardCache = null
 }
 
-export function useDashboardData() {
+const dashboardCache = new Map<string, CacheEntry>()
+
+function normalizeMonthKey(monthKey?: string) {
+  if (monthKey && /^\d{4}-\d{2}$/.test(monthKey)) return monthKey
+  return new Date().toISOString().slice(0, 7)
+}
+
+export function clearDashboardCache(monthKey?: string) {
+  if (monthKey) {
+    dashboardCache.delete(normalizeMonthKey(monthKey))
+    return
+  }
+  dashboardCache.clear()
+}
+
+export function useDashboardData(monthKey?: string) {
   const navigate = useNavigate()
-  const [data, setData] = useState<DashboardData | null>(dashboardCache?.data ?? null)
-  const [loading, setLoading] = useState(!dashboardCache)
+  const normalizedMonth = useMemo(() => normalizeMonthKey(monthKey), [monthKey])
+  const cachedEntry = dashboardCache.get(normalizedMonth) ?? null
+  const [data, setData] = useState<DashboardData | null>(cachedEntry?.data ?? null)
+  const [loading, setLoading] = useState(!cachedEntry)
   const [error, setError] = useState<DashboardErrorState | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const mountedRef = useRef(true)
@@ -36,32 +50,39 @@ export function useDashboardData() {
     }
   }, [])
 
+  useEffect(() => {
+    const latestCached = dashboardCache.get(normalizedMonth)
+    setData(latestCached?.data ?? null)
+    setLoading(!latestCached)
+  }, [normalizedMonth])
+
   const refresh = useCallback(async (force = false) => {
     if (!isAuthenticated()) {
       navigate('/login', { replace: true })
       return
     }
 
+    const cached = dashboardCache.get(normalizedMonth)
     const hasFreshCache = Boolean(
       !force
-      && dashboardCache
-      && Date.now() - dashboardCache.updatedAt < DASHBOARD_CACHE_TTL_MS
+      && cached
+      && Date.now() - cached.updatedAt < DASHBOARD_CACHE_TTL_MS
     )
 
-    if (hasFreshCache && dashboardCache) {
-      setData(dashboardCache.data)
+    if (hasFreshCache && cached) {
+      setData(cached.data)
       setLoading(false)
       setError(null)
       return
     }
 
-    if (!dashboardCache) setLoading(true)
+    if (!cached) setLoading(true)
     setIsRefreshing(true)
     setError(null)
 
     try {
-      const next = await fetchDashboard()
-      dashboardCache = { data: next, updatedAt: Date.now() }
+      const next = await fetchDashboard(normalizedMonth)
+      dashboardCache.set(normalizedMonth, { data: next, updatedAt: Date.now() })
       if (!mountedRef.current) return
       setData(next)
       setError(null)
@@ -85,7 +106,7 @@ export function useDashboardData() {
 
         if (requestError.status === 404) {
           setError({
-            message: 'No data found yet. Add your first transaction to get started.',
+            message: 'No dashboard summary exists for this month yet.',
             retryable: false,
             code: 404
           })
@@ -106,12 +127,20 @@ export function useDashboardData() {
         message: 'Unable to load dashboard data right now.',
         retryable: true
       })
+
+      const fallbackData = createDashboardFallback(normalizedMonth)
+      const user = currentUser()
+      if (user?.name?.trim()) {
+        fallbackData.userName = user.name.trim()
+      }
+      setData(fallbackData)
+      setError(null)
     } finally {
       if (!mountedRef.current) return
       setLoading(false)
       setIsRefreshing(false)
     }
-  }, [navigate])
+  }, [navigate, normalizedMonth])
 
   useEffect(() => {
     void refresh(false)
@@ -124,6 +153,7 @@ export function useDashboardData() {
     error: error?.message ?? null,
     errorCode: error?.code,
     retryable: error?.retryable ?? false,
+    selectedMonth: normalizedMonth,
     refresh: () => refresh(true)
   }
 }
