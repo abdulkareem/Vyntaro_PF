@@ -52,7 +52,7 @@ export function verifyRegistrationApi(input: { phone?: string; mobile?: string; 
     }
     next?: string
     attemptsRemaining?: number
-  }>('/api/auth/register/verify', {
+  }>('/api/auth/register/otp/verify', {
     method: 'POST',
     body: {
       ...input,
@@ -77,7 +77,7 @@ export function startPinResetApi(input: { phone?: string; email?: string }) {
 }
 
 export function verifyPinResetApi(input: { phone?: string; email?: string; otp: string }) {
-  return requestJson<{ ok: true; next?: string; attemptsRemaining?: number }>('/api/auth/pin/reset/verify', {
+  return requestJson<{ ok: true; next?: string; attemptsRemaining?: number }>('/api/auth/pin/reset/otp/verify', {
     method: 'POST',
     body: {
       ...input,

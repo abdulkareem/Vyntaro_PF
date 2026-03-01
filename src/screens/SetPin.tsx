@@ -28,7 +28,8 @@ export default function SetPin() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const flow = flowState.pinContext?.flow ?? 'register'
+  const queryMode = sp.get('mode')
+  const flow = queryMode === 'reset' || queryMode === 'register' ? queryMode : (flowState.pinContext?.flow ?? 'register')
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()

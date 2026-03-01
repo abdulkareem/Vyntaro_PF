@@ -11,6 +11,7 @@ import Analytics from './screens/Analytics'
 import Profile from './screens/Profile'
 import ForgotPin from './screens/ForgotPin'
 import ChangePin from './screens/ChangePin'
+import NotFound from './screens/NotFound'
 import Shell from './shell/Shell'
 import { isAuthenticated, requiresPinSetup } from './services/auth'
 
@@ -46,6 +47,7 @@ const router = createBrowserRouter([
       { path: 'set-pin', element: <SetPin /> },
       { path: 'login', element: <Login /> },
       { path: 'forgot-pin', element: <ForgotPin /> },
+      { path: 'reset-pin', element: <ForgotPin /> },
       { path: 'change-pin', element: <Protected><PinSetupGuard><ChangePin /></PinSetupGuard></Protected> },
       { path: 'dashboard', element: <Protected><PinSetupGuard><Dashboard /></PinSetupGuard></Protected> },
       { path: 'dashboard/transactions', element: <Protected><PinSetupGuard><Transactions /></PinSetupGuard></Protected> },
@@ -66,7 +68,8 @@ const router = createBrowserRouter([
           { path: 'activity', element: <AdminActivity /> },
           { path: 'settings', element: <AdminSettings /> }
         ]
-      }
+      },
+      { path: '*', element: <NotFound /> }
     ]
   }
 ])
