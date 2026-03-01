@@ -37,10 +37,9 @@ function largestBreakdownAmount(items: ExpenseBreakdownItem[]) {
 
 function buildZeroStateDashboard(): DashboardData {
   const user = currentUser()
-  const displayName = user?.name?.trim() || 'User'
 
   return {
-    userName: displayName,
+    userName: 'User',
     profilePhoto: user?.avatarUrl || '',
     monthLabel: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     balance: 0,

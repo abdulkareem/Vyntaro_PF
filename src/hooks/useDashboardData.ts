@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createDashboardFallback, DashboardData, fetchDashboard } from '../services/api/dashboardApi'
-import { currentUser } from '../services/auth'
 import { ApiRequestError } from '../services/api/httpClient'
 import { isAuthenticated } from '../services/auth'
 
@@ -129,10 +128,6 @@ export function useDashboardData(monthKey?: string) {
       })
 
       const fallbackData = createDashboardFallback(normalizedMonth)
-      const user = currentUser()
-      if (user?.name?.trim()) {
-        fallbackData.userName = user.name.trim()
-      }
       setData(fallbackData)
       setError(null)
     } finally {
