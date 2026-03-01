@@ -13,10 +13,17 @@ import { clearDashboardCache } from '../hooks/useDashboardData'
 type EntryType = 'expense' | 'income' | 'bill' | 'ledger'
 
 const entryLabels: Record<EntryType, string> = {
-  expense: 'Expense',
-  income: 'Income',
-  bill: 'Bill',
-  ledger: 'Ledger'
+  expense: 'Money Outflow',
+  income: 'Money In Flow',
+  bill: 'Bill Scan',
+  ledger: 'Loan / Money Lent'
+}
+
+const categorySuggestions: Record<EntryType, string[]> = {
+  expense: ['Charity', 'Food', 'Travel', 'Utilities'],
+  income: ['Salary', 'Freelance', 'Bonus'],
+  bill: ['Electricity Bill', 'Water Bill', 'Internet Bill'],
+  ledger: ['Money Lent', 'Loan', 'Charity', 'Settlement']
 }
 
 export default function LedgerEntryForm() {
@@ -186,6 +193,7 @@ export default function LedgerEntryForm() {
                 Add
               </button>
             </div>
+            <p className="dashboard-subtitle">Suggestions: {categorySuggestions[type].join(', ')}</p>
           </div>
 
           <button type="submit" className="neo-btn neo-btn-primary" disabled={busy || categoriesLoading}>
