@@ -104,7 +104,7 @@ export default function ForgotPin() {
               value={identifier}
               onChange={e => setIdentifier(
                 mode === 'phone'
-                  ? e.target.value.replace(/\D/g, '').slice(0, 15)
+                  ? e.target.value.replace(/[^\d+]/g, '').slice(0, 16)
                   : e.target.value.trimStart()
               )}
             />

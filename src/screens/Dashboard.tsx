@@ -38,14 +38,21 @@ function largestBreakdownAmount(items: ExpenseBreakdownItem[]) {
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
+  const [error, setError] = useState('')
   const [dateOffset, setDateOffset] = useState(1)
   const currencyCode = useMemo(resolveCurrencyCode, [])
 
   useEffect(() => {
-    fetchDashboard().then(setData)
+    fetchDashboard()
+      .then(setData)
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Unable to load dashboard data.')
+      })
   }, [])
 
-  if (!data) return <main className="dashboard-page"><p className="loading-text">Loading dashboard…</p></main>
+  if (!data && !error) return <main className="dashboard-page"><p className="loading-text">Loading dashboard…</p></main>
+  if (error) return <main className="dashboard-page"><p className="error">{error}</p></main>
+  if (!data) return null
 
   const today = data.todaySummary
   const dateLabel = dateOffsets[dateOffset] || today.dateLabel

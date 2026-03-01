@@ -1,7 +1,6 @@
 import { currentUser } from '../auth'
-import { fetchLedgerEntries, LedgerCategory } from './ledgerApi'
-import { getCategories } from './localFinanceStore'
-import { apiUrl } from './baseUrl'
+import { fetchLedgerCategories, fetchLedgerEntries, LedgerCategory } from './ledgerApi'
+import { requestJson } from './httpClient'
 
 export type TransactionItem = {
   id: string
@@ -158,45 +157,8 @@ function buildMetricCards(categories: LedgerCategory[], entries: Awaited<ReturnT
     })
 }
 
-async function request<T>(path: string): Promise<T> {
-  const response = await fetch(apiUrl(path), { credentials: 'include' })
-  const text = await response.text()
-
-  let data: unknown = null
-  if (text) {
-    try {
-      data = JSON.parse(text)
-    } catch {
-      data = text
-    }
-  }
-
-  if (!response.ok) {
-    throw new Error(typeof data === 'string' && data ? data : `Request failed (${response.status})`)
-  }
-
-  return data as T
-}
-
-function isRouteMissing(error: unknown) {
-  const message = error instanceof Error ? error.message.toLowerCase() : ''
-  return message.includes('404') || message.includes('not found') || message.includes('cannot')
-}
-
-async function tryPaths<T>(paths: string[]): Promise<T> {
-  let lastError: unknown
-
-  for (const [index, path] of paths.entries()) {
-    try {
-      return await request<T>(path)
-    } catch (error) {
-      lastError = error
-      const isLast = index === paths.length - 1
-      if (isLast || !isRouteMissing(error)) throw error
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('Request failed')
+async function fetchDashboardInsight<T>(path: string) {
+  return requestJson<T>(path, { useCredentials: true })
 }
 
 function inferLendingKind(name: string): 'lent' | 'loan' | null {
@@ -228,143 +190,16 @@ function calculateFinancialHealth(income: number, expense: number, savings: numb
   return { score, label: 'Risky' }
 }
 
-function buildFallbackInsights(
-  entries: Awaited<ReturnType<typeof fetchLedgerEntries>>,
-  categories: LedgerCategory[],
-  income: number,
-  expense: number,
-  balance: number,
-  budgets: BudgetItem[]
-): DashboardInsights {
-  const now = new Date()
-  const month = now.getMonth()
-  const year = now.getFullYear()
-
-  const currentMonthEntries = entries.filter(entry => {
-    const date = new Date(entry.date)
-    return date.getMonth() === month && date.getFullYear() === year
-  })
-
-  const previousMonthEntries = entries.filter(entry => {
-    const date = new Date(entry.date)
-    const prev = new Date(year, month - 1, 1)
-    return date.getMonth() === prev.getMonth() && date.getFullYear() === prev.getFullYear()
-  })
-
-  const expenseBreakdown = categories
-    .map(category => ({
-      category: category.name,
-      amount: currentMonthEntries
-        .filter(entry => entry.categoryId === category.id && normalizeType(entry.type) === 'expense')
-        .reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
-    }))
-    .filter(item => item.amount > 0)
-    .sort((a, b) => b.amount - a.amount)
-
-  const previousMonthExpense = previousMonthEntries
-    .filter(entry => normalizeType(entry.type) === 'expense')
-    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
-
-  const lendingEntries = entries.filter(entry => {
-    const categoryName = categories.find(category => category.id === entry.categoryId)?.name || ''
-    return inferLendingKind(categoryName)
-  })
-
-  const lendingSummary: LendingSummary = {
-    totalLent: lendingEntries
-      .filter(entry => {
-        const categoryName = categories.find(category => category.id === entry.categoryId)?.name || ''
-        return inferLendingKind(categoryName) === 'lent'
-      })
-      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0),
-    totalLoan: lendingEntries
-      .filter(entry => {
-        const categoryName = categories.find(category => category.id === entry.categoryId)?.name || ''
-        return inferLendingKind(categoryName) === 'loan'
-      })
-      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0),
-    breakdown: lendingEntries.slice(0, 5).map((entry, index) => {
-      const categoryName = categories.find(category => category.id === entry.categoryId)?.name || 'Loan'
-      const kind = inferLendingKind(categoryName) || 'loan'
-      return {
-        person: entry.item || `Person ${index + 1}`,
-        amount: Number(entry.amount || 0),
-        kind,
-        overdue: false,
-        dueDate: undefined
-      }
-    }),
-    agingBuckets: [
-      { bucket: '0-30', count: lendingEntries.length, amount: lendingEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0) },
-      { bucket: '31-60', count: 0, amount: 0 },
-      { bucket: '61-90', count: 0, amount: 0 },
-      { bucket: '90+', count: 0, amount: 0 }
-    ]
-  }
-
-  const budgetTotal = budgets.reduce((sum, item) => sum + item.total, 0)
-  const budgetUsed = budgets.reduce((sum, item) => sum + item.used, 0)
-  const budgetUsage = budgetTotal > 0 ? budgetUsed / budgetTotal : 0
-
-  const financialHealth = calculateFinancialHealth(
-    income,
-    expense,
-    income - expense,
-    lendingSummary.totalLent + lendingSummary.totalLoan,
-    budgetUsage
-  )
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const todayDate = new Date().getDate()
-  const daysRemaining = Math.max(daysInMonth - todayDate, 0)
-  const avgDailyExpense = expense / Math.max(todayDate, 1)
-
-  const alerts: SmartAlert[] = []
-  if (budgetUsage > 0.8) {
-    alerts.push({ type: 'warning', message: 'Budget usage is above 80%. Consider reducing discretionary spend.' })
-  }
-  if (expense > previousMonthExpense && previousMonthExpense > 0) {
-    alerts.push({ type: 'info', message: 'Expenses are higher than last month. Review category trends to stay on plan.' })
-  }
-
-  return {
-    financialHealth,
-    netWorth: {
-      netWorth: balance + lendingSummary.totalLent - lendingSummary.totalLoan,
-      savingsThisMonth: income - expense
-    },
-    expenseBreakdown,
-    alerts: alerts.slice(0, 3),
-    prediction: {
-      projectedBalance: balance - (avgDailyExpense * daysRemaining)
-    },
-    lendingSummary
-  }
-}
-
-async function fetchInsights(month: number, year: number, fallback: DashboardInsights): Promise<DashboardInsights> {
+async function fetchInsights(month: number, year: number): Promise<DashboardInsights> {
   const query = `month=${month}&year=${year}`
 
   const [financialHealth, netWorth, expenseBreakdown, alerts, prediction, lendingSummary] = await Promise.all([
-    tryPaths<FinancialHealth>([
-      `/api/dashboard/financial-health?${query}`,
-      `/api/dashboard/health-score?${query}`
-    ]).catch(() => fallback.financialHealth),
-    tryPaths<NetWorthSummary>([
-      `/api/dashboard/net-worth?${query}`
-    ]).catch(() => fallback.netWorth),
-    tryPaths<ExpenseBreakdownItem[]>([
-      `/api/dashboard/expense-breakdown?${query}`
-    ]).catch(() => fallback.expenseBreakdown),
-    tryPaths<SmartAlert[]>([
-      `/api/dashboard/alerts?${query}`
-    ]).catch(() => fallback.alerts),
-    tryPaths<BalancePrediction>([
-      `/api/dashboard/prediction?${query}`
-    ]).catch(() => fallback.prediction),
-    tryPaths<LendingSummary>([
-      `/api/dashboard/lending-summary?${query}`
-    ]).catch(() => fallback.lendingSummary)
+    fetchDashboardInsight<FinancialHealth>(`/api/dashboard/financial-health?${query}`),
+    fetchDashboardInsight<NetWorthSummary>(`/api/dashboard/net-worth?${query}`),
+    fetchDashboardInsight<ExpenseBreakdownItem[]>(`/api/dashboard/expense-breakdown?${query}`),
+    fetchDashboardInsight<SmartAlert[]>(`/api/dashboard/alerts?${query}`),
+    fetchDashboardInsight<BalancePrediction>(`/api/dashboard/prediction?${query}`),
+    fetchDashboardInsight<LendingSummary>(`/api/dashboard/lending-summary?${query}`)
   ])
 
   return {
@@ -383,7 +218,12 @@ export async function fetchDashboard(): Promise<DashboardData> {
 
   await new Promise(resolve => setTimeout(resolve, 120))
 
-  const categories = getCategories()
+  const categories = (await Promise.all([
+    fetchLedgerCategories('expense'),
+    fetchLedgerCategories('income'),
+    fetchLedgerCategories('bill'),
+    fetchLedgerCategories('ledger')
+  ])).flat()
   const entries = await fetchLedgerEntries()
   const metricCards = buildMetricCards(categories, entries)
   const income = entries
@@ -425,9 +265,8 @@ export async function fetchDashboard(): Promise<DashboardData> {
     { id: 'bg3', name: 'Shopping', used: 200, total: 500 }
   ]
 
-  const fallbackInsights = buildFallbackInsights(entries, categories, income, expense, balance, budgets)
   const now = new Date()
-  const insights = await fetchInsights(now.getMonth() + 1, now.getFullYear(), fallbackInsights)
+  const insights = await fetchInsights(now.getMonth() + 1, now.getFullYear())
 
   return {
     userName: displayName,
