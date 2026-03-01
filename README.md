@@ -39,7 +39,7 @@ VITE_ENABLE_SW=true
 ```
 
 Important runtime behavior
-- In production, `VITE_API_BASE_URL` is required unless `VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=true` is explicitly set.
+- In production, set `VITE_API_BASE_URL` explicitly. If omitted, the app falls back to the default Railway backend URL (`https://vyntaropfback-production.up.railway.app`) and logs a warning.
 - When `VITE_API_BASE_URL` is set, requests target that backend only.
 - Same-origin fallback (`/api/...`) is available only in development, or in production when `VITE_API_ALLOW_SAME_ORIGIN_FALLBACK=true` is explicitly configured.
 - This prevents silent routing to the frontend origin and makes backend/CORS misconfiguration fail fast.
