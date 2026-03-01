@@ -12,6 +12,7 @@ import {
   verifyPinResetApi,
   verifyOtpApi
 } from './api/authApi'
+import { isApiRequestError } from './api/httpClient'
 
 type LocationData = { lat: number; lon: number } | null
 
@@ -174,18 +175,28 @@ export function requiresPinSetup(): boolean {
   return Boolean(user?.id && !user.pinSet)
 }
 
-export async function registerStart(input: { mobile: string; email?: string; name: string; location: LocationData }) {
+export async function registerStart(input: { mobile: string; email?: string; name: string; location: LocationData; countryCode: string }) {
   const normalizedEmail = String(input.email || '').trim().toLowerCase()
   const hasEmail = Boolean(normalizedEmail)
 
-  const response = await registerStartApi({
-    phone: input.mobile,
-    mobile: input.mobile,
-    email: hasEmail ? normalizedEmail : undefined,
-    deliveryChannels: hasEmail ? ['phone', 'email'] : ['phone'],
-    sendOtpToPhone: true,
-    sendOtpToEmail: hasEmail
-  })
+  let response
+  try {
+    response = await registerStartApi({
+      phone: input.mobile,
+      mobile: input.mobile,
+      email: hasEmail ? normalizedEmail : undefined,
+      country: input.countryCode,
+      deliveryChannels: hasEmail ? ['phone', 'email'] : ['phone'],
+      sendOtpToPhone: true,
+      sendOtpToEmail: hasEmail
+    })
+  } catch (error) {
+    if (isApiRequestError(error)) {
+      if (error.status === 400) throw new Error(error.message || 'Please check your registration details and try again.')
+      if (error.status === 404) throw new Error(error.message || 'Registration service is unavailable right now.')
+    }
+    throw error
+  }
 
   setPendingRegistration({
     userId: response.userId,
@@ -324,6 +335,20 @@ export async function startPinReset(identifier: { phone?: string; email?: string
     const result = await startPinResetApi({ phone: identifier.phone, email: normalizedEmail })
     return { ok: true, code: result.code }
   } catch (e: any) {
+    if (isApiRequestError(e)) {
+      if (e.status === 404) {
+        return { ok: false, reason: 'not_found', message: e.message || 'Account not found for provided details.' }
+      }
+
+      if (e.status === 400) {
+        return { ok: false, reason: 'not_supported', message: e.message || 'Please check your details and try again.' }
+      }
+
+      if (e.status === 429) {
+        return { ok: false, reason: 'throttled', message: e.message || 'Too many attempts. Please try again shortly.' }
+      }
+    }
+
     const message = e?.message || 'Failed to start PIN reset.'
     const normalizedMessage = String(message).toLowerCase()
 
