@@ -27,6 +27,7 @@ export default function Verify() {
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
   const [attemptsUsed, setAttemptsUsed] = useState(flow.otpSession?.attemptsUsed ?? 0)
+  const [serviceUnavailable, setServiceUnavailable] = useState(false)
 
   const locked = attemptsUsed >= MAX_ATTEMPTS
   const attemptsRemaining = useMemo(() => Math.max(0, MAX_ATTEMPTS - attemptsUsed), [attemptsUsed])
@@ -69,10 +70,17 @@ export default function Verify() {
       setLoading(true)
       setError('')
       setInfo('')
+      setServiceUnavailable(false)
 
       if (mode === 'reset') {
         const result = await verifyPinReset({ phone, email }, otp)
         if (!result.ok) {
+          if (result.reason === 'service_unavailable') {
+            setServiceUnavailable(true)
+            setError('Service temporarily unavailable')
+            return
+          }
+
           const nextUsed = result.attemptsRemaining != null ? MAX_ATTEMPTS - result.attemptsRemaining : attemptsUsed + 1
           const bounded = Math.min(MAX_ATTEMPTS, Math.max(0, nextUsed))
           setAttemptsUsed(bounded)
@@ -112,10 +120,17 @@ export default function Verify() {
       })
       nav(resolveNextRoute(result.next, '/set-pin'), { replace: true })
     } catch (e: any) {
-      const bounded = Math.min(MAX_ATTEMPTS, attemptsUsed + 1)
-      setAttemptsUsed(bounded)
-      updateAuthFlowOtpSession({ attemptsUsed: bounded, resendEnabled: bounded >= MAX_ATTEMPTS })
-      setError(e?.message || 'OTP verification failed.')
+      const message = e?.message || 'OTP verification failed.'
+      const status = e?.status
+      if (status === 404 || message.toLowerCase().includes('service temporarily unavailable')) {
+        setServiceUnavailable(true)
+        setError('Service temporarily unavailable')
+      } else {
+        const bounded = Math.min(MAX_ATTEMPTS, attemptsUsed + 1)
+        setAttemptsUsed(bounded)
+        updateAuthFlowOtpSession({ attemptsUsed: bounded, resendEnabled: bounded >= MAX_ATTEMPTS })
+        setError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -163,7 +178,18 @@ export default function Verify() {
         <p className="neo-auth-sub">Attempts left: {attemptsRemaining} / {MAX_ATTEMPTS}.</p>
 
         <input className="neo-control" placeholder="6-digit OTP" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} disabled={locked || loading} />
-        <button className="neo-btn neo-btn-primary" onClick={handleVerify} disabled={loading || locked}>{loading ? 'Verifying…' : 'Verify & Continue'}</button>
+        <button className="neo-btn neo-btn-primary" onClick={handleVerify} disabled={loading || locked || serviceUnavailable}>{loading ? 'Verifying…' : 'Verify & Continue'}</button>
+
+        {serviceUnavailable && (
+          <button
+            type="button"
+            className="neo-btn neo-btn-link"
+            onClick={() => window.location.reload()}
+            disabled={loading}
+          >
+            Retry (Reload Page)
+          </button>
+        )}
 
         {(locked || error.toLowerCase().includes('expired')) && <button type="button" className="neo-btn neo-btn-link" onClick={handleResend} disabled={loading}>Resend OTP</button>}
 
