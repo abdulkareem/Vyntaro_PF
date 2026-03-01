@@ -12,6 +12,8 @@ export type AuthFlowOtpSession = {
   attemptsUsed: number
   maxAttempts: number
   resendEnabled: boolean
+  phone?: string
+  email?: string
 }
 
 export type AuthFlowPinContext = {

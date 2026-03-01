@@ -54,7 +54,7 @@ export default function ForgotPin() {
 
     setAuthFlowIdentity({ flow: 'reset', countryCode, phone, fullPhone, email: email.trim().toLowerCase() || undefined })
     setAuthFlowPinContext({ flow: 'reset', identifier })
-    setAuthFlowOtpSession({ purpose: 'reset', attemptsUsed: 0, maxAttempts: 3, resendEnabled: false })
+    setAuthFlowOtpSession({ purpose: 'reset', attemptsUsed: 0, maxAttempts: 3, resendEnabled: false, phone: fullPhone, email: email.trim().toLowerCase() || undefined })
 
     const next = resolveNextRoute(r.next, '/verify')
     nav(`${next}?mode=reset&mobile=${encodeURIComponent(fullPhone)}`, { replace: true })

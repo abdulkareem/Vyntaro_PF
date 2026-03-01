@@ -183,6 +183,18 @@ export function requestOtpApi(input: { phone?: string; mobile?: string; email?: 
   })
 }
 
+export function resendOtpApi(input: { phone?: string; mobile?: string; email?: string; mode: 'register' | 'reset' }) {
+  const normalizedPhone = resolvePhone(input.phone, input.mobile)
+  return requestJson<{ ok: true; code?: string; next?: string; attemptsRemaining?: number }>('/api/auth/otp/resend', {
+    method: 'POST',
+    body: {
+      mode: input.mode,
+      email: input.email,
+      ...(normalizedPhone ? { phone: normalizedPhone, mobile: normalizedPhone } : {})
+    }
+  })
+}
+
 export function verifyOtpApi(input: { phone?: string; mobile?: string; email?: string; otp: string; purpose: string }) {
   const normalizedPhone = resolvePhone(input.phone, input.mobile)
   return requestJson<{ ok: true; token?: string }>('/api/auth/otp/verify', {
