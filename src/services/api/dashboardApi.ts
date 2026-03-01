@@ -168,7 +168,7 @@ function metricCardRoute(name: string, fallbackHref?: string) {
 export function createDashboardFallback(monthKey?: string): DashboardData {
   const resolvedMonth = normalizeMonthKey(monthKey)
   const user = currentUser()
-  const displayName = user?.name?.trim() || user?.mobile || 'User'
+  const displayName = user?.name?.trim() || 'User'
 
   return {
     userName: displayName,
@@ -231,9 +231,12 @@ function mergeDashboardDefaults(summary: DashboardData | null, monthKey: string)
   const base = createDashboardFallback(monthKey)
   if (!summary) return base
 
+  const currentUserName = currentUser()?.name?.trim()
+
   return {
     ...base,
     ...summary,
+    userName: currentUserName || summary.userName || base.userName,
     monthLabel: summary.monthLabel || base.monthLabel,
     balance: Number(summary.balance || 0),
     income: Number(summary.income || 0),

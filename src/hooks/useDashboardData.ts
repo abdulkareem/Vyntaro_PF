@@ -132,10 +132,9 @@ export function useDashboardData(monthKey?: string) {
       const user = currentUser()
       if (user?.name?.trim()) {
         fallbackData.userName = user.name.trim()
-      } else if (user?.mobile) {
-        fallbackData.userName = user.mobile
       }
       setData(fallbackData)
+      setError(null)
     } finally {
       if (!mountedRef.current) return
       setLoading(false)
