@@ -66,6 +66,10 @@ export function setPinApi(input: { phone: string; pin: string; userId?: string; 
   return requestJson<{ ok: true; next?: string }>('/api/auth/pin/set', { method: 'POST', body: input })
 }
 
+export function setPinWithModeApi(input: { pin: string; mode: 'register' | 'reset' }) {
+  return requestJson<{ ok: true; next?: string; message?: string }>('/api/auth/pin/set', { method: 'POST', body: input })
+}
+
 export function startPinResetApi(input: { phone?: string; email?: string }) {
   return requestJson<{ ok: true; code?: string; channel?: 'phone' | 'email'; next?: string }>('/api/auth/pin/reset/start', {
     method: 'POST',

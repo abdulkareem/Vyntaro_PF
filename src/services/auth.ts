@@ -6,6 +6,7 @@ import {
   registerStartApi,
   requestOtpApi,
   setPinApi,
+  setPinWithModeApi,
   startPinResetApi,
   updatePinApi,
   updateProfileApi,
@@ -402,6 +403,15 @@ export async function setNewPin(identifier: { phone?: string; email?: string }, 
     return { ok: true, next: response.next }
   } catch (e: any) {
     return { ok: false, reason: 'not_supported', message: e?.message || 'Failed to reset PIN' }
+  }
+}
+
+export async function setPinByMode(input: { pin: string; mode: 'register' | 'reset' }): Promise<PinSetResult & { message?: string }> {
+  try {
+    const response = await setPinWithModeApi(input)
+    return { ok: true, next: response.next, message: response.message }
+  } catch (e: any) {
+    return { ok: false, reason: 'not_supported', message: e?.message || 'Failed to save PIN.' }
   }
 }
 

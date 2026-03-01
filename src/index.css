@@ -154,6 +154,27 @@ body {
   border-color: #67e8f9;
   color: #67e8f9;
 }
+
+.neo-pin-setup {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+}
+
+.neo-pin-helper {
+  text-align: left;
+  font-size: 12px;
+  margin: 0;
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.neo-inline-error {
+  margin: 0;
+  text-align: left;
+  color: #fca5a5;
+  font-size: 12px;
+}
+
 .neo-pin-row {
   width: 100%;
   display: flex;
