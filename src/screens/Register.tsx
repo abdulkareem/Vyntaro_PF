@@ -103,7 +103,7 @@ export default function Register() {
         email: normalizedEmail,
         name: form.fullName.trim()
       })
-      setAuthFlowOtpSession({ purpose: 'register', attemptsUsed: 0, maxAttempts: 3, resendEnabled: false })
+      setAuthFlowOtpSession({ purpose: 'register', attemptsUsed: 0, maxAttempts: 3, resendEnabled: false, phone: fullPhone, email: normalizedEmail || undefined })
 
       const nextRoute = resolveNextRoute((start as { next?: string }).next, '/verify')
       nav(`${nextRoute}?mobile=${encodeURIComponent(fullPhone)}&mode=register`, { replace: true })

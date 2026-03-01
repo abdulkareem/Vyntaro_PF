@@ -5,6 +5,7 @@ import {
   refreshAuthApi,
   registerStartApi,
   requestOtpApi,
+  resendOtpApi,
   setPinApi,
   setPinWithModeApi,
   startPinResetApi,
@@ -476,6 +477,21 @@ export async function updatePin(mobile: string, oldPin: string, newPin: string):
     return { ok: true }
   } catch (e: any) {
     return { ok: false, reason: 'not_supported', message: e?.message || 'Failed to update PIN.' }
+  }
+}
+
+
+export async function resendAuthOtp(input: { phone?: string; email?: string; mode: 'register' | 'reset' }) {
+  const normalizedEmail = input.email?.trim().toLowerCase()
+  try {
+    return await resendOtpApi({ phone: input.phone, email: normalizedEmail, mode: input.mode })
+  } catch (e: any) {
+    if (isApiRequestError(e)) {
+      const payload = e.payload && typeof e.payload === 'object' ? e.payload as { code?: string } : undefined
+      if (payload?.code === 'USER_NOT_FOUND') throw new Error('USER_NOT_FOUND')
+      if (payload?.code === 'OTP_EXPIRED') throw new Error('OTP_EXPIRED')
+    }
+    throw e
   }
 }
 
