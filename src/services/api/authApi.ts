@@ -135,6 +135,7 @@ export function loginApi(input: { phone?: string; email?: string; identifier?: s
     user: {
       id: string
       phone: string
+      name?: string | null
       email?: string | null
       verifiedAt?: string | null
       avatarUrl?: string | null
@@ -154,6 +155,7 @@ export function refreshAuthApi(input: { refreshToken: string }) {
     user: {
       id: string
       phone: string
+      name?: string | null
       email?: string | null
       verifiedAt?: string | null
       avatarUrl?: string | null
@@ -164,6 +166,20 @@ export function refreshAuthApi(input: { refreshToken: string }) {
     refreshToken?: string
     expiresAt?: string
   }>('/api/auth/refresh', { method: 'POST', body: input })
+}
+
+export function fetchProfileMeApi() {
+  return requestJson<{
+    id: string
+    name?: string | null
+    phone?: string | null
+    mobile?: string | null
+    email?: string | null
+    avatarUrl?: string | null
+    verifiedAt?: string | null
+    pinSet?: boolean
+    role?: string
+  }>('/api/profile/me', { useCredentials: true })
 }
 
 export function checkIdentityApi(input: { phone: string; email?: string }) {

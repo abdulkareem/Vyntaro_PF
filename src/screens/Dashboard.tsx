@@ -1,12 +1,12 @@
 import { Link, NavLink } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import BalanceCard from '../components/dashboard/BalanceCard'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import TransactionList from '../components/dashboard/TransactionList'
 import { DashboardData, ExpenseBreakdownItem, SmartAlert } from '../services/api/dashboardApi'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { formatCurrency, resolveCurrencyCode } from '../lib/finance'
-import { currentUser } from '../services/auth'
+import { currentUser, hydrateCurrentUserFromProfile } from '../services/auth'
 
 const dateOffsets = ['Yesterday', 'Today', 'Tomorrow']
 
@@ -39,7 +39,7 @@ function buildZeroStateDashboard(): DashboardData {
   const user = currentUser()
 
   return {
-    userName: 'User',
+    userName: user?.name?.trim() || 'User',
     profilePhoto: user?.avatarUrl || '',
     monthLabel: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     balance: 0,
@@ -92,7 +92,21 @@ export default function Dashboard() {
   const { data, loading, error, errorCode, refresh, retryable, isRefreshing } = useDashboardData()
   const [dateOffset, setDateOffset] = useState(1)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sessionUserName, setSessionUserName] = useState(() => currentUser()?.name?.trim() || '')
   const currencyCode = useMemo(resolveCurrencyCode, [])
+
+  useEffect(() => {
+    const sync = () => {
+      setSessionUserName(currentUser()?.name?.trim() || '')
+      void hydrateCurrentUserFromProfile().then(next => {
+        setSessionUserName(next?.name?.trim() || '')
+      })
+    }
+
+    sync()
+    window.addEventListener('auth-changed', sync)
+    return () => window.removeEventListener('auth-changed', sync)
+  }, [])
 
   if (loading) {
     return (
@@ -107,6 +121,7 @@ export default function Dashboard() {
   }
 
   const dashboard = data ?? buildZeroStateDashboard()
+  const dashboardUserName = sessionUserName || dashboard.userName
 
   const today = dashboard.todaySummary
   const dateLabel = dateOffsets[dateOffset] || today.dateLabel
@@ -134,7 +149,7 @@ export default function Dashboard() {
         </aside>
 
         <section className="dashboard-main">
-          <DashboardHeader userName={dashboard.userName} profilePhoto={dashboard.profilePhoto} />
+          <DashboardHeader userName={dashboardUserName} profilePhoto={dashboard.profilePhoto} />
 
           {error ? (
             <section className="dashboard-card fade-in-up">

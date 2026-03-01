@@ -168,7 +168,7 @@ function metricCardRoute(name: string, fallbackHref?: string) {
 export function createDashboardFallback(monthKey?: string): DashboardData {
   const resolvedMonth = normalizeMonthKey(monthKey)
   const user = currentUser()
-  const displayName = 'User'
+  const displayName = user?.name?.trim() || 'User'
 
   return {
     userName: displayName,

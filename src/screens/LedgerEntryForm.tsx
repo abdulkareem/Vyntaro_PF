@@ -1,29 +1,37 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import DashboardTabs from '../components/dashboard/DashboardTabs'
 import {
   LedgerCategory,
   createLedgerCategory,
   createLedgerEntry,
+  createLoanEntry,
   fetchLedgerCategories
 } from '../services/api/ledgerApi'
 import { ApiRequestError } from '../services/api/httpClient'
 import { clearDashboardCache } from '../hooks/useDashboardData'
 
-type EntryType = 'expense' | 'income' | 'bill' | 'ledger'
+type EntryType = 'expense' | 'income' | 'bill' | 'ledger' | 'loan'
+type LedgerFlowType = 'income' | 'expense'
 
 const entryLabels: Record<EntryType, string> = {
   expense: 'Money Outflow',
   income: 'Money In Flow',
   bill: 'Bill Scan',
-  ledger: 'Loan / Money Lent'
+  ledger: 'Ledger Entry',
+  loan: 'Loan / Money Lent'
 }
 
 const categorySuggestions: Record<EntryType, string[]> = {
   expense: ['Charity', 'Food', 'Travel', 'Utilities'],
   income: ['Salary', 'Freelance', 'Bonus'],
   bill: ['Electricity Bill', 'Water Bill', 'Internet Bill'],
-  ledger: ['Money Lent', 'Loan', 'Charity', 'Settlement']
+  ledger: ['Income', 'Expense', 'Transfer'],
+  loan: ['Money Lent', 'Loan', 'Settlement']
+}
+
+function normalizedEntryType(type: EntryType, ledgerFlowType: LedgerFlowType) {
+  if (type === 'ledger') return ledgerFlowType
+  return type
 }
 
 export default function LedgerEntryForm() {
@@ -31,8 +39,9 @@ export default function LedgerEntryForm() {
   const navigate = useNavigate()
 
   const requestedType = (searchParams.get('type') || 'expense') as EntryType
-  const type: EntryType = ['expense', 'income', 'bill', 'ledger'].includes(requestedType) ? requestedType : 'expense'
+  const type: EntryType = ['expense', 'income', 'bill', 'ledger', 'loan'].includes(requestedType) ? requestedType : 'expense'
 
+  const [ledgerFlowType, setLedgerFlowType] = useState<LedgerFlowType>('expense')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [item, setItem] = useState('')
   const [particulars, setParticulars] = useState('')
@@ -45,26 +54,47 @@ export default function LedgerEntryForm() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
+  const effectiveType = normalizedEntryType(type, ledgerFlowType)
+  const categoryType = type === 'loan' ? 'ledger' : effectiveType
+
   useEffect(() => {
     setCategoriesLoading(true)
-    fetchLedgerCategories(type)
+    setCategoryId('')
+
+    fetchLedgerCategories(categoryType)
       .then(values => {
         setCategories(values)
         if (values[0]) setCategoryId(values[0].id)
       })
       .catch(() => setCategories([]))
       .finally(() => setCategoriesLoading(false))
-  }, [type])
+  }, [categoryType])
 
-  const headerText = useMemo(() => `${entryLabels[type]} Entry`, [type])
+  const headerText = useMemo(() => {
+    if (type === 'ledger') return `${entryLabels[effectiveType]} Entry`
+    return `${entryLabels[type]} Entry`
+  }, [effectiveType, type])
 
   const handleAddCategory = async () => {
-    if (!newCategory.trim()) return
+    const normalizedName = newCategory.trim()
+
+    if (!normalizedName) {
+      setError('Category name must not be empty.')
+      return
+    }
+
+    if (categories.some(category => category.name.trim().toLowerCase() === normalizedName.toLowerCase())) {
+      setError('Category already exists. Please choose it from the dropdown.')
+      return
+    }
+
     setBusy(true)
     setError('')
+    setMessage('')
 
     try {
-      const category = await createLedgerCategory({ name: newCategory.trim(), type, showOnDashboard: true })
+      const payloadType = type === 'loan' ? 'ledger' : effectiveType
+      const category = await createLedgerCategory({ name: normalizedName, type: payloadType, showOnDashboard: true })
       setCategories(prev => [category, ...prev])
       setCategoryId(category.id)
       setNewCategory('')
@@ -78,8 +108,30 @@ export default function LedgerEntryForm() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
     if (categoriesLoading) {
       setError('Categories are still loading. Please wait a moment and try again.')
+      return
+    }
+
+    if (!item.trim()) {
+      setError('Item is required.')
+      return
+    }
+
+    if (!particulars.trim()) {
+      setError('Particulars are required.')
+      return
+    }
+
+    if (!amount || Number(amount) <= 0) {
+      setError('Amount must be greater than zero.')
+      return
+    }
+
+    const fallbackCategoryName = newCategory.trim()
+    if (!categoryId && !fallbackCategoryName) {
+      setError('Please select or add a category before saving.')
       return
     }
 
@@ -88,16 +140,23 @@ export default function LedgerEntryForm() {
     setError('')
 
     try {
-      await createLedgerEntry({
-        type,
+      const payload = {
         date,
-        item,
-        particulars,
+        item: item.trim(),
+        particulars: particulars.trim(),
         amount: Number(amount),
         categoryId: categoryId || undefined,
-        categoryName: categoryId ? undefined : newCategory.trim() || undefined
-      })
+        categoryName: categoryId ? undefined : fallbackCategoryName
+      }
+
+      if (type === 'loan') {
+        await createLoanEntry({ ...payload, type: 'loan', loanKind: 'lent' })
+      } else {
+        await createLedgerEntry({ ...payload, type: effectiveType })
+      }
+
       clearDashboardCache()
+      setMessage('Entry saved successfully.')
       navigate('/dashboard', { replace: true, state: { refreshDashboard: true } })
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 401) {
@@ -107,7 +166,7 @@ export default function LedgerEntryForm() {
       }
 
       if (err instanceof ApiRequestError && err.status === 404) {
-        setError('Ledger entry API route is unavailable. Please verify backend route configuration.')
+        setError('Ledger API route is unavailable. Please verify backend route configuration.')
         return
       }
 
@@ -119,7 +178,6 @@ export default function LedgerEntryForm() {
 
   return (
     <main className="dashboard-page">
-      <DashboardTabs />
       <section className="dashboard-card fade-in-up">
         <div className="ledger-form-header">
           <div>
@@ -130,6 +188,16 @@ export default function LedgerEntryForm() {
         </div>
 
         <form className="ledger-form" onSubmit={handleSubmit}>
+          {type === 'ledger' ? (
+            <label className="ledger-field">
+              <span>Entry Type</span>
+              <select value={ledgerFlowType} onChange={event => setLedgerFlowType(event.target.value as LedgerFlowType)} disabled={busy}>
+                <option value="income">Money Inflow</option>
+                <option value="expense">Money Outflow</option>
+              </select>
+            </label>
+          ) : null}
+
           <label className="ledger-field">
             <span>Date</span>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
@@ -197,7 +265,7 @@ export default function LedgerEntryForm() {
           </div>
 
           <button type="submit" className="neo-btn neo-btn-primary" disabled={busy || categoriesLoading}>
-            {busy ? 'Saving…' : `Save ${entryLabels[type]} Entry`}
+            {busy ? 'Saving…' : 'Save Entry'}
           </button>
 
           {categoriesLoading ? <p className="dashboard-subtitle">Loading categories…</p> : null}

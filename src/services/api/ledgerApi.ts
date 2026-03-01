@@ -1,6 +1,6 @@
-import { ApiRequestError, requestJson, requestJsonWithPathFallback } from './httpClient'
+import { ApiRequestError, requestJsonWithPathFallback } from './httpClient'
 
-export type FinanceType = 'expense' | 'income' | 'bill' | 'ledger'
+export type FinanceType = 'expense' | 'income' | 'bill' | 'ledger' | 'loan'
 
 export type LedgerCategory = {
   id: string
@@ -87,6 +87,26 @@ export async function createLedgerEntry(input: LedgerEntryInput) {
   return requestJsonWithPathFallback<{ ok: boolean; id?: string; entryId?: string }>(['/api/ledger/entries', '/ledger/entries'], {
     method: 'POST',
     body: input
+  })
+}
+
+
+
+export async function createLoanEntry(input: Omit<LedgerEntryInput, 'type'> & {
+  type?: 'loan'
+  loanKind?: 'lent' | 'loan'
+}) {
+  if (!input.categoryId && !input.categoryName?.trim()) {
+    throw new Error('Please select or create a category first.')
+  }
+
+  return requestJsonWithPathFallback<{ ok: boolean; id?: string; entryId?: string; loanId?: string }>(['/api/ledger/loans', '/ledger/loans'], {
+    method: 'POST',
+    body: {
+      ...input,
+      type: 'loan',
+      loanKind: input.loanKind || 'lent'
+    }
   })
 }
 
