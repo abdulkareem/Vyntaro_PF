@@ -13,9 +13,11 @@ export default function Verify() {
   const nav = useNavigate()
   const flow = getAuthFlowState()
 
-  const mode = (sp.get('mode') as 'register' | 'reset' | null) ?? flow.otpSession?.purpose ?? 'register'
-  const phone = sp.get('phone') || sp.get('mobile') || flow.identity?.fullPhone || flow.pinContext?.identifier.phone || ''
-  const email = flow.identity?.email || flow.pinContext?.identifier.email
+  const queryMode = sp.get('mode')
+  const mode = queryMode === 'reset' || queryMode === 'register' ? queryMode : (flow.otpSession?.purpose ?? 'register')
+  const queryPhone = sp.get('phone') || sp.get('mobile')
+  const phone = (queryPhone || flow.identity?.fullPhone || flow.pinContext?.identifier.phone || '').replace(/\s+/g, '')
+  const email = (sp.get('email') || flow.identity?.email || flow.pinContext?.identifier.email || '').trim().toLowerCase() || undefined
 
   const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
@@ -52,7 +54,8 @@ export default function Verify() {
         }
 
         setAuthFlowPinContext({ flow: 'reset', identifier: { phone, email } })
-        nav(resolveNextRoute(result.next, '/set-pin'), { replace: true })
+        const nextRoute = resolveNextRoute(result.next, '/set-pin')
+        nav(nextRoute.startsWith('/set-pin') ? '/set-pin?mode=reset' : nextRoute, { replace: true })
         return
       }
 

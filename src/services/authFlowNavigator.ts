@@ -1,3 +1,14 @@
+const SUPPORTED_ROUTES = new Set([
+  '/verify',
+  '/set-pin',
+  '/login',
+  '/dashboard',
+  '/forgot-pin',
+  '/register',
+  '/reset-pin',
+  '/change-pin'
+])
+
 export function resolveNextRoute(next: string | undefined, fallback: string) {
   if (!next) return fallback
 
@@ -15,6 +26,7 @@ export function resolveNextRoute(next: string | undefined, fallback: string) {
     case 'pin_reset_start':
       return '/forgot-pin'
     default:
-      return next.startsWith('/') ? next : fallback
+      if (!next.startsWith('/')) return fallback
+      return SUPPORTED_ROUTES.has(next) ? next : fallback
   }
 }
