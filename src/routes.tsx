@@ -25,9 +25,16 @@ import AdminRoles from './admin/screens/AdminRoles'
 import AdminDatabase from './admin/screens/AdminDatabase'
 import AdminSettings from './admin/screens/AdminSettings'
 import AdminActivity from './admin/screens/AdminActivity'
-
-
-
+import BalanceOverview from './screens/finance/BalanceOverview'
+import IncomeAnalytics from './screens/finance/IncomeAnalytics'
+import ExpenseBreakdown from './screens/finance/ExpenseBreakdown'
+import CategoryDrilldown from './screens/finance/CategoryDrilldown'
+import FinancialHealthDetails from './screens/finance/FinancialHealthDetails'
+import AlertsCenter from './screens/finance/AlertsCenter'
+import PredictionDetails from './screens/finance/PredictionDetails'
+import LendingIntelligence from './screens/finance/LendingIntelligence'
+import SnapshotDetails from './screens/finance/SnapshotDetails'
+import BudgetOverview from './screens/finance/BudgetOverview'
 
 function PublicOnly({ children }: { children: JSX.Element }) {
   const location = useLocation()
@@ -78,6 +85,16 @@ const router = createBrowserRouter([
       { path: 'dashboard/ledgerentry/new', element: <Protected><PinSetupGuard><LedgerEntryForm /></PinSetupGuard></Protected> },
       { path: 'dashboard/analytics', element: <Protected><PinSetupGuard><Analytics /></PinSetupGuard></Protected> },
       { path: 'dashboard/profile', element: <Protected><PinSetupGuard><Profile /></PinSetupGuard></Protected> },
+      { path: 'dashboard/balance', element: <Protected><PinSetupGuard><BalanceOverview /></PinSetupGuard></Protected> },
+      { path: 'dashboard/analytics/income', element: <Protected><PinSetupGuard><IncomeAnalytics /></PinSetupGuard></Protected> },
+      { path: 'dashboard/analytics/expenses', element: <Protected><PinSetupGuard><ExpenseBreakdown /></PinSetupGuard></Protected> },
+      { path: 'dashboard/categories/:categoryName', element: <Protected><PinSetupGuard><CategoryDrilldown /></PinSetupGuard></Protected> },
+      { path: 'dashboard/insights/health', element: <Protected><PinSetupGuard><FinancialHealthDetails /></PinSetupGuard></Protected> },
+      { path: 'dashboard/insights/alerts', element: <Protected><PinSetupGuard><AlertsCenter /></PinSetupGuard></Protected> },
+      { path: 'dashboard/insights/prediction', element: <Protected><PinSetupGuard><PredictionDetails /></PinSetupGuard></Protected> },
+      { path: 'dashboard/lending', element: <Protected><PinSetupGuard><LendingIntelligence /></PinSetupGuard></Protected> },
+      { path: 'dashboard/snapshot', element: <Protected><PinSetupGuard><SnapshotDetails /></PinSetupGuard></Protected> },
+      { path: 'dashboard/budgets', element: <Protected><PinSetupGuard><BudgetOverview /></PinSetupGuard></Protected> },
       { path: 'admin/login', element: <AdminPublicOnly><AdminLogin /></AdminPublicOnly> },
       {
         path: 'admin',

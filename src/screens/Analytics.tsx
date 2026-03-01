@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import DashboardTabs from '../components/dashboard/DashboardTabs'
 import { useDashboardData } from '../hooks/useDashboardData'
 
@@ -14,7 +15,13 @@ export default function Analytics() {
       <DashboardTabs />
       <h2 className="screen-title">Insights</h2>
       <section className="dashboard-card fade-in-up">
-        <p className="dashboard-subtitle">Monthly trends and category charts.</p>
+        <div className="section-head-inline">
+          <p className="dashboard-subtitle">Monthly trends and category charts.</p>
+          <div className="shortcut-list">
+            <Link className="shortcut-link" to="/dashboard/analytics/income">Income analytics</Link>
+            <Link className="shortcut-link" to="/dashboard/analytics/expenses">Expense analytics</Link>
+          </div>
+        </div>
         {loading && (
           <div className="skeleton-card">
             <div className="skeleton-line" />
@@ -28,7 +35,7 @@ export default function Analytics() {
             {retryable ? <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry</button> : null}
           </div>
         )}
-        {!loading && !error && points.length === 0 && <p className="dashboard-subtitle">No analytics data yet.</p>}
+        {!loading && !error && points.length === 0 && <p className="dashboard-subtitle">No analytics data yet. Add transactions to unlock trend charts.</p>}
         {!loading && !error && points.length > 0 && (
           <div className="analytics-list">
             {points.map(point => (

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { formatCurrency, resolveCurrencyCode } from '../../lib/finance'
 import { TransactionItem } from '../../services/api/dashboardApi'
 
 type TransactionListProps = {
@@ -6,11 +7,7 @@ type TransactionListProps = {
 }
 
 function formatAmount(value: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2
-  }).format(Math.abs(value))
+  return formatCurrency(Math.abs(value), resolveCurrencyCode())
 }
 
 export default function TransactionList({ items }: TransactionListProps) {
