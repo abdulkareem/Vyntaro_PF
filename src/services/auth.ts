@@ -71,7 +71,7 @@ type PinResetVerifyResult = {
   otpSessionId?: string
   verificationToken?: string
   temporaryAuthToken?: string
-} | { ok: false; reason: 'expired' | 'invalid' | 'not_supported'; message?: string; code?: string; attemptsRemaining?: number }
+} | { ok: false; reason: 'expired' | 'invalid' | 'service_unavailable' | 'not_supported'; message?: string; code?: string; attemptsRemaining?: number }
 type PinSetResult = { ok: true; next?: string } | { ok: false; reason?: 'not_supported'; message?: string }
 
 type OfflineCredential = {
@@ -490,6 +490,17 @@ export async function verifyPinReset(identifier: { phone?: string; email?: strin
         ? e.payload as { code?: string; attemptsRemaining?: number }
         : undefined
       const codeFromApi = payload?.code
+
+      if (e.status === 404) {
+        console.error('[auth] PIN reset OTP verify endpoint unavailable', {
+          status: e.status,
+          path: '/api/auth/pin/reset/otp/verify',
+          payload: e.payload,
+          message: e.message
+        })
+        return { ok: false, reason: 'service_unavailable', message: 'Service temporarily unavailable' }
+      }
+
       if (codeFromApi === 'OTP_EXPIRED') {
         return { ok: false, reason: 'expired', message: e?.message || 'OTP expired.', code: codeFromApi, attemptsRemaining: payload?.attemptsRemaining }
       }

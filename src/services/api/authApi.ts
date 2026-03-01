@@ -109,6 +109,7 @@ export function verifyPinResetApi(input: { phone?: string; email?: string; otp: 
     method: 'POST',
     body: {
       ...input,
+      mode: 'reset',
       ...(input.phone ? { mobile: input.phone } : {})
     }
   })
