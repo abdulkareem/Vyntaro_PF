@@ -1,3 +1,4 @@
+const DEFAULT_PROD_API_BASE = 'https://vyntaropfback-production.up.railway.app'
 const RAW_API_BASE = String(import.meta.env.VITE_API_BASE_URL || '').trim()
 const IS_DEV = import.meta.env.DEV
 const SAME_ORIGIN_FALLBACK_ENABLED =
@@ -21,7 +22,12 @@ function normalizeBase(base: string) {
   }
 }
 
-export const API_BASE_URL = normalizeBase(RAW_API_BASE)
+const resolvedEnvBase = normalizeBase(RAW_API_BASE)
+const shouldUseDefaultProdBase = !resolvedEnvBase && !IS_DEV && !SAME_ORIGIN_FALLBACK_ENABLED
+
+export const API_BASE_URL = shouldUseDefaultProdBase
+  ? normalizeBase(DEFAULT_PROD_API_BASE)
+  : resolvedEnvBase
 
 export function canUseSameOriginFallback() {
   return IS_DEV || SAME_ORIGIN_FALLBACK_ENABLED
@@ -35,6 +41,12 @@ export function assertApiBaseConfigured() {
   )
 }
 
+
+if (shouldUseDefaultProdBase) {
+  // eslint-disable-next-line no-console
+  console.warn('[api] VITE_API_BASE_URL is missing in production. Falling back to default Railway backend URL.', { resolved: API_BASE_URL })
+}
+
 if (import.meta.env.DEV) {
   // Helps catch common deployment mistakes quickly (quotes, missing scheme, wrong host).
   // eslint-disable-next-line no-console
@@ -43,6 +55,7 @@ if (import.meta.env.DEV) {
 
 export function apiUrl(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  assertApiBaseConfigured()
   if (!API_BASE_URL) return normalizedPath
   return `${API_BASE_URL}${normalizedPath}`
 }
