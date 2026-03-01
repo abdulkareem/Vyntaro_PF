@@ -165,14 +165,15 @@ function metricCardRoute(name: string, fallbackHref?: string) {
   return `/dashboard/categories/${encodeURIComponent(name)}`
 }
 
-function defaultDashboard(monthKey: string): DashboardData {
+export function createDashboardFallback(monthKey?: string): DashboardData {
+  const resolvedMonth = normalizeMonthKey(monthKey)
   const user = currentUser()
-  const displayName = user?.name || 'User'
+  const displayName = user?.name?.trim() || user?.mobile || 'User'
 
   return {
     userName: displayName,
     profilePhoto: user?.avatarUrl || fallbackAvatar(displayName),
-    monthLabel: toMonthLabel(monthKey),
+    monthLabel: toMonthLabel(resolvedMonth),
     balance: 0,
     income: 0,
     expense: 0,
@@ -227,7 +228,7 @@ function resolveSummary(payload: DashboardSummaryResponse): DashboardData | null
 }
 
 function mergeDashboardDefaults(summary: DashboardData | null, monthKey: string) {
-  const base = defaultDashboard(monthKey)
+  const base = createDashboardFallback(monthKey)
   if (!summary) return base
 
   return {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DashboardData, fetchDashboard } from '../services/api/dashboardApi'
+import { createDashboardFallback, DashboardData, fetchDashboard } from '../services/api/dashboardApi'
+import { currentUser } from '../services/auth'
 import { ApiRequestError } from '../services/api/httpClient'
 import { isAuthenticated } from '../services/auth'
 
@@ -126,6 +127,15 @@ export function useDashboardData(monthKey?: string) {
         message: 'Unable to load dashboard data right now.',
         retryable: true
       })
+
+      const fallbackData = createDashboardFallback(normalizedMonth)
+      const user = currentUser()
+      if (user?.name?.trim()) {
+        fallbackData.userName = user.name.trim()
+      } else if (user?.mobile) {
+        fallbackData.userName = user.mobile
+      }
+      setData(fallbackData)
     } finally {
       if (!mountedRef.current) return
       setLoading(false)
