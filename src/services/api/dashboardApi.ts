@@ -1,6 +1,5 @@
 import { currentUser } from '../auth'
-import { fetchLedgerCategories, fetchLedgerEntries, LedgerCategory } from './ledgerApi'
-import { ApiRequestError, requestJson } from './httpClient'
+import { requestJson } from './httpClient'
 
 export type TransactionItem = {
   id: string
@@ -136,274 +135,135 @@ export type DashboardData = {
   }
 }
 
+type DashboardSummaryResponse = DashboardData | {
+  summary?: DashboardData
+  data?: DashboardData
+}
+
 function fallbackAvatar(seed: string) {
   return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(seed)}`
 }
 
-function normalizeType(name: string): 'income' | 'expense' {
-  return name.toLowerCase() === 'income' ? 'income' : 'expense'
+function normalizeMonthKey(monthKey?: string) {
+  if (monthKey && /^\d{4}-\d{2}$/.test(monthKey)) return monthKey
+  return new Date().toISOString().slice(0, 7)
 }
 
-function buildMetricCards(categories: LedgerCategory[], entries: Awaited<ReturnType<typeof fetchLedgerEntries>>) {
-  return categories
-    .filter(category => category.showOnDashboard)
-    .map(category => {
-      const amount = entries
-        .filter(entry => entry.categoryId === category.id)
-        .reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
-
-      return {
-        id: category.id,
-        name: category.name,
-        amount,
-        href: `/dashboard/transactions?category=${encodeURIComponent(category.name)}`
-      }
-    })
+function toMonthLabel(monthKey: string) {
+  const [year, month] = monthKey.split('-').map(Number)
+  return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
-async function fetchDashboardInsight<T>(path: string) {
-  return requestJson<T>(path, { useCredentials: true })
-}
-
-async function withSingleRetry<T>(request: () => Promise<T>, shouldRetry: (error: unknown) => boolean) {
-  try {
-    return await request()
-  } catch (error) {
-    if (!shouldRetry(error)) throw error
-    return request()
-  }
-}
-
-function inferLendingKind(name: string): 'lent' | 'loan' | null {
+function metricCardRoute(name: string, fallbackHref?: string) {
   const normalized = name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-  if (normalized.includes('lent') || normalized.includes('money lent')) return 'lent'
-  if (normalized.includes('loan')) return 'loan'
-  return null
+  if (normalized === 'income') return '/dashboard/analytics/income'
+  if (normalized === 'expense') return '/dashboard/analytics/expenses'
+  if (normalized.includes('charity')) return '/dashboard/categories/charity'
+  if (normalized.includes('money lent') || normalized === 'lent') return '/dashboard/lending?kind=lent'
+  if (normalized.includes('loan')) return '/dashboard/lending?kind=loan'
+  if (fallbackHref) return fallbackHref
+  return `/dashboard/categories/${encodeURIComponent(name)}`
 }
 
-function calculateFinancialHealth(income: number, expense: number, savings: number, lendingExposure: number, budgetUsage: number): FinancialHealth {
-  const safeIncome = income > 0 ? income : 1
-  const expenseIncomeRatio = expense / safeIncome
-  const savingsRate = savings / safeIncome
-  const lendingRatio = lendingExposure / safeIncome
-
-  // Weighted score calculation mirrors backend business rules and remains deterministic.
-  const score = Math.max(0, Math.min(100,
-    Math.round(
-      40 * Math.max(0, 1 - expenseIncomeRatio)
-      + 30 * Math.max(0, Math.min(1, savingsRate))
-      + 20 * Math.max(0, 1 - lendingRatio)
-      + 10 * Math.max(0, 1 - budgetUsage)
-    * 100
-    ) / 100
-  ))
-
-  if (score >= 70) return { score, label: 'Good' }
-  if (score >= 45) return { score, label: 'Average' }
-  return { score, label: 'Risky' }
-}
-
-async function fetchInsights(month: number, year: number): Promise<DashboardInsights> {
-  const query = `month=${month}&year=${year}`
-
-  const [financialHealth, netWorth, expenseBreakdown, alerts, prediction, lendingSummary] = await Promise.all([
-    fetchDashboardInsight<FinancialHealth>(`/api/dashboard/financial-health?${query}`),
-    fetchDashboardInsight<NetWorthSummary>(`/api/dashboard/net-worth?${query}`),
-    fetchDashboardInsight<ExpenseBreakdownItem[]>(`/api/dashboard/expense-breakdown?${query}`),
-    fetchDashboardInsight<SmartAlert[]>(`/api/dashboard/alerts?${query}`),
-    fetchDashboardInsight<BalancePrediction>(`/api/dashboard/prediction?${query}`),
-    fetchDashboardInsight<LendingSummary>(`/api/dashboard/lending-summary?${query}`)
-  ])
-
-  return {
-    financialHealth,
-    netWorth,
-    expenseBreakdown,
-    alerts: alerts.slice(0, 3),
-    prediction,
-    lendingSummary
-  }
-}
-
-const defaultInsights: DashboardInsights = {
-  financialHealth: { score: 0, label: 'Average' },
-  netWorth: { netWorth: 0, savingsThisMonth: 0 },
-  expenseBreakdown: [],
-  alerts: [],
-  prediction: { projectedBalance: 0 },
-  lendingSummary: {
-    totalLent: 0,
-    totalLoan: 0,
-    breakdown: [],
-    agingBuckets: [
-      { bucket: '0-30', count: 0, amount: 0 },
-      { bucket: '31-60', count: 0, amount: 0 },
-      { bucket: '61-90', count: 0, amount: 0 },
-      { bucket: '90+', count: 0, amount: 0 }
-    ]
-  }
-}
-
-export async function fetchDashboard(): Promise<DashboardData> {
+export function createDashboardFallback(monthKey?: string): DashboardData {
+  const resolvedMonth = normalizeMonthKey(monthKey)
   const user = currentUser()
-  const displayName = user?.name || 'John Doe'
-
-  await new Promise(resolve => setTimeout(resolve, 120))
-
-  const categoryTypes = ['expense', 'income', 'bill', 'ledger']
-  const categoryResults = await Promise.allSettled(
-    categoryTypes.map(type => withSingleRetry(
-      () => fetchLedgerCategories(type),
-      error => error instanceof ApiRequestError && error.status >= 500
-    ))
-  )
-
-  let ledgerCategoriesState: DashboardData['ledgerCategoriesState'] = { message: null, retryable: false }
-  const categoryFailures = categoryResults.filter(result => result.status === 'rejected')
-  const firstCategoryError = categoryFailures[0]?.status === 'rejected' ? categoryFailures[0].reason : null
-
-  if (firstCategoryError instanceof ApiRequestError && firstCategoryError.status === 401) {
-    throw firstCategoryError
-  }
-
-  if (categoryFailures.length > 0) {
-    const hasServerError = categoryFailures.some(
-      result => result.status === 'rejected' && result.reason instanceof ApiRequestError && result.reason.status >= 500
-    )
-
-    ledgerCategoriesState = hasServerError
-      ? { message: 'Categories are temporarily unavailable. Retry to load them again.', retryable: true }
-      : { message: 'No categories yet.', retryable: false }
-  }
-
-  const categories = categoryResults
-    .filter((result): result is PromiseFulfilledResult<LedgerCategory[]> => result.status === 'fulfilled')
-    .flatMap(result => result.value)
-
-  let entries: Awaited<ReturnType<typeof fetchLedgerEntries>> = []
-  try {
-    entries = await fetchLedgerEntries()
-  } catch (entryError) {
-    if (entryError instanceof ApiRequestError && entryError.status === 401) {
-      throw entryError
-    }
-  }
-  const metricCards = buildMetricCards(categories, entries)
-  const income = entries
-    .filter(entry => normalizeType(entry.type) === 'income')
-    .reduce((sum, entry) => sum + entry.amount, 0)
-  const expense = entries
-    .filter(entry => normalizeType(entry.type) === 'expense')
-    .reduce((sum, entry) => sum + entry.amount, 0)
-  const balance = income - expense
-
-  const todayDate = new Date().toISOString().slice(0, 10)
-  const todayEntries = entries.filter(entry => entry.date === todayDate)
-  const todayIncome = todayEntries
-    .filter(entry => normalizeType(entry.type) === 'income')
-    .reduce((sum, entry) => sum + entry.amount, 0)
-  const todayExpense = todayEntries
-    .filter(entry => normalizeType(entry.type) === 'expense')
-    .reduce((sum, entry) => sum + entry.amount, 0)
-
-  const todayCardTotals = metricCards.map(card => ({
-    ...card,
-    amount: todayEntries
-      .filter(entry => entry.categoryId === card.id)
-      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
-  }))
-
-  const transactions = entries.slice(0, 6).map(entry => ({
-    id: entry.id,
-    title: entry.item,
-    amount: normalizeType(entry.type) === 'income' ? entry.amount : -Math.abs(entry.amount),
-    type: normalizeType(entry.type),
-    date: entry.date,
-    href: `/dashboard/transactions?txn=${entry.id}`
-  }))
-
-  const budgets: BudgetItem[] = [
-    { id: 'bg1', name: 'Food', used: 120, total: 300 },
-    { id: 'bg2', name: 'Travel', used: 450, total: 800 },
-    { id: 'bg3', name: 'Shopping', used: 200, total: 500 }
-  ]
-
-  const now = new Date()
-  let insights = defaultInsights
-  try {
-    insights = await fetchInsights(now.getMonth() + 1, now.getFullYear())
-  } catch (insightError) {
-    if (insightError instanceof ApiRequestError && insightError.status === 401) {
-      throw insightError
-    }
-
-    const savingsThisMonth = Math.max(income - expense, 0)
-    const lendingExposure = defaultInsights.lendingSummary.totalLent + defaultInsights.lendingSummary.totalLoan
-    const budgetUsage = expense > 0 && income > 0 ? Math.min(expense / income, 1) : 0
-    const health = calculateFinancialHealth(income, expense, savingsThisMonth, lendingExposure, budgetUsage)
-
-    insights = {
-      ...defaultInsights,
-      financialHealth: health,
-      netWorth: {
-        netWorth: balance,
-        savingsThisMonth
-      },
-      prediction: {
-        projectedBalance: balance
-      }
-    }
-  }
+  const displayName = user?.name?.trim() || 'User'
 
   return {
     userName: displayName,
     profilePhoto: user?.avatarUrl || fallbackAvatar(displayName),
-    monthLabel: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-    balance,
-    income,
-    expense,
-    metricCards,
+    monthLabel: toMonthLabel(resolvedMonth),
+    balance: 0,
+    income: 0,
+    expense: 0,
+    metricCards: [],
     todaySummary: {
       dateLabel: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      income: todayIncome,
-      expense: todayExpense,
-      cardTotals: todayCardTotals
+      income: 0,
+      expense: 0,
+      cardTotals: []
     },
     budgetSummary: {
-      monthly: 12000,
-      yearly: 144000
+      monthly: 0,
+      yearly: 0
     },
-    jobs: [
-      { id: 'shops', label: 'Order from Shops', icon: '🛒', href: '/dashboard/transactions' },
-      { id: 'rides', label: 'Book Auto / Car', icon: '🚕', href: '/dashboard/ledgerentry' },
-      { id: 'bills', label: 'My Bills', icon: '🧾', href: '/dashboard/transactions?view=bills' },
-      { id: 'add', label: 'Add Entry', icon: '➕', href: '/dashboard/ledgerentry?view=add-entry' }
-    ],
-    shortcuts: [
-      { id: 's1', text: 'Reorder from Anand Stores', href: '/dashboard/transactions?shop=anand' },
-      { id: 's2', text: 'Call Ravi Auto (last used)', href: '/dashboard/ledgerentry?driver=ravi' },
-      { id: 's3', text: 'View latest bill from Fresh Mart', href: '/dashboard/transactions?bill=fresh-mart' }
-    ],
-    activity: [
-      { id: 'a1', text: 'Paid ₹320 at Green Grocery', href: '/dashboard/transactions?activity=a1' },
-      { id: 'a2', text: 'Ordered Rice & Oil from Fresh Mart', href: '/dashboard/transactions?activity=a2' },
-      { id: 'a3', text: 'Auto ride with Ravi – ₹180', href: '/dashboard/ledgerentry?activity=a3' },
-      { id: 'a4', text: 'Electricity Bill uploaded by Shop', href: '/dashboard/transactions?activity=a4' }
-    ],
-    bills: [
-      { id: 'b1', shop: 'Fresh Mart', amount: 640, date: '2026-02-02', href: '/dashboard/transactions?bill=1' },
-      { id: 'b2', shop: 'Green Grocery', amount: 320, date: '2026-01-30', href: '/dashboard/transactions?bill=2' },
-      { id: 'b3', shop: 'City Electronics', amount: 1240, date: '2026-01-25', href: '/dashboard/transactions?bill=3' }
-    ],
-    transactions,
-    budgets,
-    analytics: [
-      { name: 'Jan', income: 4000, expense: 2400 },
-      { name: 'Feb', income: 3000, expense: 1398 },
-      { name: 'Mar', income: 5000, expense: 2800 },
-      { name: 'Apr', income: 4780, expense: 3908 }
-    ],
-    insights,
-    ledgerCategoriesState
+    jobs: [],
+    shortcuts: [],
+    activity: [],
+    bills: [],
+    transactions: [],
+    budgets: [],
+    analytics: [],
+    insights: {
+      financialHealth: { score: 0, label: 'Average' },
+      netWorth: { netWorth: 0, savingsThisMonth: 0 },
+      expenseBreakdown: [],
+      alerts: [],
+      prediction: { projectedBalance: 0 },
+      lendingSummary: {
+        totalLent: 0,
+        totalLoan: 0,
+        breakdown: [],
+        agingBuckets: [
+          { bucket: '0-30', count: 0, amount: 0 },
+          { bucket: '31-60', count: 0, amount: 0 },
+          { bucket: '61-90', count: 0, amount: 0 },
+          { bucket: '90+', count: 0, amount: 0 }
+        ]
+      }
+    },
+    ledgerCategoriesState: { message: null, retryable: false }
   }
+}
+
+function resolveSummary(payload: DashboardSummaryResponse): DashboardData | null {
+  if (payload && typeof payload === 'object') {
+    if ('balance' in payload) return payload as DashboardData
+    if ('summary' in payload && payload.summary) return payload.summary
+    if ('data' in payload && payload.data) return payload.data
+  }
+
+  return null
+}
+
+function mergeDashboardDefaults(summary: DashboardData | null, monthKey: string) {
+  const base = createDashboardFallback(monthKey)
+  if (!summary) return base
+
+  const currentUserName = currentUser()?.name?.trim()
+
+  return {
+    ...base,
+    ...summary,
+    userName: currentUserName || summary.userName || base.userName,
+    monthLabel: summary.monthLabel || base.monthLabel,
+    balance: Number(summary.balance || 0),
+    income: Number(summary.income || 0),
+    expense: Number(summary.expense || 0),
+    metricCards: (summary.metricCards || []).map(card => ({
+      ...card,
+      amount: Number(card.amount || 0),
+      href: metricCardRoute(card.name, card.href)
+    })),
+    budgetSummary: {
+      monthly: Number(summary.budgetSummary?.monthly || 0),
+      yearly: Number(summary.budgetSummary?.yearly || 0)
+    },
+    insights: {
+      ...base.insights,
+      ...summary.insights,
+      lendingSummary: {
+        ...base.insights.lendingSummary,
+        ...summary.insights?.lendingSummary
+      }
+    }
+  }
+}
+
+export async function fetchDashboard(monthKey?: string): Promise<DashboardData> {
+  const targetMonth = normalizeMonthKey(monthKey)
+  const payload = await requestJson<DashboardSummaryResponse>(`/api/dashboard/summary?month=${encodeURIComponent(targetMonth)}`, { useCredentials: true })
+  const summary = resolveSummary(payload)
+  return mergeDashboardDefaults(summary, targetMonth)
 }

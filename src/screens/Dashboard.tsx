@@ -6,6 +6,7 @@ import TransactionList from '../components/dashboard/TransactionList'
 import { DashboardData, ExpenseBreakdownItem, SmartAlert } from '../services/api/dashboardApi'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { formatCurrency, resolveCurrencyCode } from '../lib/finance'
+import { currentUser } from '../services/auth'
 
 const dateOffsets = ['Yesterday', 'Today', 'Tomorrow']
 
@@ -35,9 +36,12 @@ function largestBreakdownAmount(items: ExpenseBreakdownItem[]) {
 }
 
 function buildZeroStateDashboard(): DashboardData {
+  const user = currentUser()
+  const displayName = user?.name?.trim() || 'User'
+
   return {
-    userName: 'User',
-    profilePhoto: '',
+    userName: displayName,
+    profilePhoto: user?.avatarUrl || '',
     monthLabel: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     balance: 0,
     income: 0,

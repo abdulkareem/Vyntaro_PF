@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { currentUser, logout } from '../services/auth'
 import MobileNav from '../components/navigation/MobileNav'
+import { useTheme } from '../hooks/useTheme'
 
 const authRoutes = new Set(['/login', '/register', '/verify', '/set-pin', '/forgot-pin'])
 
 export default function Shell() {
+  useTheme()
   const [authVersion, setAuthVersion] = useState(0)
   const u = currentUser()
   const nav = useNavigate()
