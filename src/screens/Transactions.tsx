@@ -1,26 +1,24 @@
-import { useEffect, useState } from 'react'
 import DashboardTabs from '../components/dashboard/DashboardTabs'
 import TransactionList from '../components/dashboard/TransactionList'
-import { TransactionItem, fetchDashboard } from '../services/api/dashboardApi'
+import { useDashboardData } from '../hooks/useDashboardData'
 
 export default function Transactions() {
-  const [transactions, setTransactions] = useState<TransactionItem[]>([])
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    fetchDashboard()
-      .then(data => setTransactions(data.transactions))
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Unable to load transactions.')
-      })
-  }, [])
+  const { data, loading, error, refresh } = useDashboardData()
+  const transactions = data?.transactions ?? []
 
   return (
     <main className="dashboard-page">
       <DashboardTabs />
       <h2 className="screen-title">Shops & Orders</h2>
       <p className="dashboard-subtitle">Nearby shops, repeat orders, and purchase history.</p>
-      {error ? <p className="error">{error}</p> : <TransactionList items={transactions} />}
+      {loading && <p className="loading-text">Loading transactions…</p>}
+      {!loading && error && (
+        <div>
+          <p className="error">{error}</p>
+          <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry</button>
+        </div>
+      )}
+      {!loading && !error && <TransactionList items={transactions} />}
     </main>
   )
 }

@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import BalanceCard from '../components/dashboard/BalanceCard'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardTabs from '../components/dashboard/DashboardTabs'
-import { DashboardData, ExpenseBreakdownItem, fetchDashboard, SmartAlert } from '../services/api/dashboardApi'
+import { DashboardData, ExpenseBreakdownItem, SmartAlert } from '../services/api/dashboardApi'
+import { useDashboardData } from '../hooks/useDashboardData'
 
 const dateOffsets = ['Yesterday', 'Today', 'Tomorrow']
 
@@ -37,22 +38,20 @@ function largestBreakdownAmount(items: ExpenseBreakdownItem[]) {
 }
 
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null)
-  const [error, setError] = useState('')
+  const { data, loading, error, refresh } = useDashboardData()
   const [dateOffset, setDateOffset] = useState(1)
   const currencyCode = useMemo(resolveCurrencyCode, [])
 
-  useEffect(() => {
-    fetchDashboard()
-      .then(setData)
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Unable to load dashboard data.')
-      })
-  }, [])
-
-  if (!data && !error) return <main className="dashboard-page"><p className="loading-text">Loading dashboard…</p></main>
-  if (error) return <main className="dashboard-page"><p className="error">{error}</p></main>
-  if (!data) return null
+  if (loading) return <main className="dashboard-page"><p className="loading-text">Loading dashboard…</p></main>
+  if (error) {
+    return (
+      <main className="dashboard-page">
+        <p className="error">{error}</p>
+        <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry dashboard load</button>
+      </main>
+    )
+  }
+  if (!data) return <main className="dashboard-page"><p className="dashboard-subtitle">No dashboard data available yet.</p></main>
 
   const today = data.todaySummary
   const dateLabel = dateOffsets[dateOffset] || today.dateLabel
@@ -202,13 +201,13 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="today-grid">
-          <article className="today-item income"><span>Income</span><strong>${today.income.toFixed(2)}</strong></article>
-          <article className="today-item expense"><span>Expense</span><strong>${today.expense.toFixed(2)}</strong></article>
+          <article className="today-item income"><span>Income</span><strong>{formatCurrency(today.income, currencyCode)}</strong></article>
+          <article className="today-item expense"><span>Expense</span><strong>{formatCurrency(today.expense, currencyCode)}</strong></article>
           {today.cardTotals
             .filter(card => !['income', 'expense'].includes(card.name.toLowerCase()))
             .map(card => (
               <article key={card.id} className="today-item budget">
-                <span>{card.name}</span><strong>${card.amount.toFixed(2)}</strong>
+                <span>{card.name}</span><strong>{formatCurrency(card.amount, currencyCode)}</strong>
               </article>
             ))}
         </div>
@@ -217,8 +216,8 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Budget Overview</h3>
         <div className="today-grid budget-grid">
-          <article className="today-item budget"><span>Monthly Budget</span><strong>${data.budgetSummary.monthly.toFixed(2)}</strong></article>
-          <article className="today-item budget"><span>Yearly Budget</span><strong>${data.budgetSummary.yearly.toFixed(2)}</strong></article>
+          <article className="today-item budget"><span>Monthly Budget</span><strong>{formatCurrency(data.budgetSummary.monthly, currencyCode)}</strong></article>
+          <article className="today-item budget"><span>Yearly Budget</span><strong>{formatCurrency(data.budgetSummary.yearly, currencyCode)}</strong></article>
         </div>
       </section>
 
@@ -261,7 +260,7 @@ export default function Dashboard() {
           {data.bills.map(bill => (
             <Link key={bill.id} to={bill.href} className="bill-row">
               <span>{bill.shop}</span>
-              <strong>₹{bill.amount}</strong>
+              <strong>{formatCurrency(bill.amount, currencyCode)}</strong>
             </Link>
           ))}
         </div>
