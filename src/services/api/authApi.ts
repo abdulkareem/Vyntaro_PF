@@ -52,6 +52,10 @@ export function verifyRegistrationApi(input: { phone?: string; mobile?: string; 
     }
     next?: string
     attemptsRemaining?: number
+    userId?: string
+    otpSessionId?: string
+    verificationToken?: string
+    temporaryAuthToken?: string
   }>('/api/auth/register/otp/verify', {
     method: 'POST',
     body: {
@@ -66,8 +70,20 @@ export function setPinApi(input: { phone: string; pin: string; userId?: string; 
   return requestJson<{ ok: true; next?: string }>('/api/auth/pin/set', { method: 'POST', body: input })
 }
 
-export function setPinWithModeApi(input: { pin: string; mode: 'register' | 'reset' }) {
-  return requestJson<{ ok: true; next?: string; message?: string }>('/api/auth/pin/set', { method: 'POST', body: input })
+export function setPinWithModeApi(input: {
+  pin: string
+  mode: 'register' | 'reset'
+  userId?: string
+  otpSessionId?: string
+  verificationToken?: string
+  temporaryAuthToken?: string
+}) {
+  const { temporaryAuthToken, ...body } = input
+  return requestJson<{ ok: true; next?: string; message?: string }>('/api/auth/pin/set', {
+    method: 'POST',
+    body,
+    ...(temporaryAuthToken ? { authToken: temporaryAuthToken } : {})
+  })
 }
 
 export function startPinResetApi(input: { phone?: string; email?: string }) {
@@ -81,7 +97,15 @@ export function startPinResetApi(input: { phone?: string; email?: string }) {
 }
 
 export function verifyPinResetApi(input: { phone?: string; email?: string; otp: string }) {
-  return requestJson<{ ok: true; next?: string; attemptsRemaining?: number }>('/api/auth/pin/reset/otp/verify', {
+  return requestJson<{
+    ok: true
+    next?: string
+    attemptsRemaining?: number
+    userId?: string
+    otpSessionId?: string
+    verificationToken?: string
+    temporaryAuthToken?: string
+  }>('/api/auth/pin/reset/otp/verify', {
     method: 'POST',
     body: {
       ...input,

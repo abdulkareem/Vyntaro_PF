@@ -1,9 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import PinSetupInput from '../components/auth/PinSetupInput'
 import { setPinByMode } from '../services/auth'
 import { clearAuthFlowState, getAuthFlowState } from '../services/authFlowState'
+
+function hasOtpContext(flowState: ReturnType<typeof getAuthFlowState>) {
+  const otpContext = flowState.pinContext?.otpContext
+  return Boolean(
+    otpContext?.otpSessionId
+    || otpContext?.temporaryAuthToken
+    || otpContext?.verificationToken
+    || otpContext?.userId
+  )
+}
 
 export default function SetPin() {
   const [sp] = useSearchParams()
@@ -32,15 +42,40 @@ export default function SetPin() {
     ? queryMode
     : (flowState.pinContext?.flow ?? 'register')
 
+  const otpContextPresent = hasOtpContext(flowState)
+
+  useEffect(() => {
+    if (otpContextPresent) return
+
+    const phoneParam = flowState.pinContext?.identifier.phone ? `&phone=${encodeURIComponent(flowState.pinContext.identifier.phone)}` : ''
+    const emailParam = flowState.pinContext?.identifier.email ? `&email=${encodeURIComponent(flowState.pinContext.identifier.email)}` : ''
+    nav(`/verify?mode=${mode}${phoneParam}${emailParam}`, {
+      replace: true,
+      state: { message: 'Please verify OTP again' }
+    })
+  }, [mode, nav, otpContextPresent, flowState.pinContext?.identifier.phone, flowState.pinContext?.identifier.email])
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!otpContextPresent) {
+      setError('Please verify OTP again')
+      return
+    }
+
     if (!/^\d{4}$/.test(pin)) return setError('Enter and confirm a 4-digit PIN.')
 
     setLoading(true)
     setError(null)
 
     try {
-      const result = await setPinByMode({ pin, mode })
+      const result = await setPinByMode({
+        pin,
+        mode,
+        userId: flowState.pinContext?.otpContext?.userId,
+        otpSessionId: flowState.pinContext?.otpContext?.otpSessionId,
+        verificationToken: flowState.pinContext?.otpContext?.verificationToken,
+        temporaryAuthToken: flowState.pinContext?.otpContext?.temporaryAuthToken
+      })
       if (!result.ok) {
         setError(result.message || 'Failed to save PIN.')
         return
@@ -70,8 +105,8 @@ export default function SetPin() {
 
         <form onSubmit={submit} className="neo-form-stack">
           <input className="neo-control" value={mobile || flowState.pinContext?.identifier.email || 'Using your verified identity'} readOnly aria-label="Identity" />
-          <PinSetupInput value={pin} onChange={setPin} disabled={loading} />
-          <button className="neo-btn neo-btn-primary" type="submit" disabled={loading || pin.length !== 4}>{loading ? 'Saving…' : 'Save PIN'}</button>
+          <PinSetupInput value={pin} onChange={setPin} disabled={loading || !otpContextPresent} />
+          <button className="neo-btn neo-btn-primary" type="submit" disabled={loading || pin.length !== 4 || !otpContextPresent}>{loading ? 'Saving…' : 'Save PIN'}</button>
           {error && <p className="error">{error}</p>}
           {successMessage && mode === 'reset' && <p className="neo-success">{successMessage}</p>}
         </form>

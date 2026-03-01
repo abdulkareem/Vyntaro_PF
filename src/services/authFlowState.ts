@@ -17,6 +17,12 @@ export type AuthFlowOtpSession = {
 export type AuthFlowPinContext = {
   flow: 'register' | 'reset'
   identifier: { phone?: string; email?: string }
+  otpContext?: {
+    userId?: string
+    otpSessionId?: string
+    verificationToken?: string
+    temporaryAuthToken?: string
+  }
 }
 
 type AuthFlowState = {
@@ -28,7 +34,7 @@ type AuthFlowState = {
 const AUTH_FLOW_STATE_KEY = 'auth_flow_state'
 
 function readState(): AuthFlowState {
-  const raw = localStorage.getItem(AUTH_FLOW_STATE_KEY)
+  const raw = sessionStorage.getItem(AUTH_FLOW_STATE_KEY)
   if (!raw) return {}
 
   try {
@@ -39,7 +45,7 @@ function readState(): AuthFlowState {
 }
 
 function writeState(next: AuthFlowState) {
-  localStorage.setItem(AUTH_FLOW_STATE_KEY, JSON.stringify(next))
+  sessionStorage.setItem(AUTH_FLOW_STATE_KEY, JSON.stringify(next))
 }
 
 export function getAuthFlowState() {
@@ -68,5 +74,5 @@ export function setAuthFlowPinContext(pinContext: AuthFlowPinContext) {
 }
 
 export function clearAuthFlowState() {
-  localStorage.removeItem(AUTH_FLOW_STATE_KEY)
+  sessionStorage.removeItem(AUTH_FLOW_STATE_KEY)
 }
