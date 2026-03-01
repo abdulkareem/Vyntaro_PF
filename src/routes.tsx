@@ -36,6 +36,10 @@ function PinSetupGuard({ children }: { children: JSX.Element }) {
   return children
 }
 
+function LegacySetPinRedirect() {
+  return <Navigate to="/set-pin" replace />
+}
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -45,6 +49,7 @@ const router = createBrowserRouter([
       { path: 'register', element: <Register /> },
       { path: 'verify', element: <Verify /> },
       { path: 'set-pin', element: <SetPin /> },
+      { path: 'set-pin/:legacyMode', element: <LegacySetPinRedirect /> },
       { path: 'login', element: <Login /> },
       { path: 'forgot-pin', element: <ForgotPin /> },
       { path: 'reset-pin', element: <ForgotPin /> },

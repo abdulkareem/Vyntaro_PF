@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { loginWithPin } from '../services/auth'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import PinInput from '../components/auth/PinInput'
@@ -8,6 +8,7 @@ import { resolveNextRoute } from '../services/authFlowNavigator'
 
 export default function Login() {
   const nav = useNavigate()
+  const location = useLocation()
   const [identifier, setIdentifier] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
@@ -70,6 +71,10 @@ export default function Login() {
         <PinInput value={pin} onChange={setPin} disabled={loading} />
 
         {error && <p className="error">{error}</p>}
+
+        {location.state && typeof location.state === 'object' && 'successMessage' in location.state && typeof location.state.successMessage === 'string' && (
+          <p className="neo-success">{location.state.successMessage}</p>
+        )}
 
         <button className="neo-btn neo-btn-primary" onClick={handleSubmit} disabled={loading}>
           {loading ? 'Verifying...' : 'Login'}
