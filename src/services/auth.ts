@@ -50,7 +50,15 @@ type PendingRegistration = {
 
 type LoginResult =
   | { ok: true; user: AppUser; mode: AuthStatus; next?: string }
-  | { ok: false; reason: 'invalid' | 'pin_not_set' | 'offline_unavailable' }
+  | {
+      ok: false
+      reason:
+        | 'invalid_pin'
+        | 'pin_not_set'
+        | 'offline_unavailable'
+        | 'service_unavailable'
+        | 'network_error'
+    }
 
 type PinResetRequestResult = { ok: true; code?: string; next?: string } | { ok: false; reason: 'not_found' | 'throttled' | 'not_supported'; message?: string; code?: string }
 type PinResetVerifyResult = {
@@ -174,6 +182,16 @@ export function logout() {
   notifyAuthChanged()
 }
 
+export function clearStoredAuthArtifacts() {
+  storage.del(SESSION_KEY)
+  storage.del(OFFLINE_AUTH_KEY)
+  localStorage.removeItem('auth_phone')
+  localStorage.removeItem('auth_user_mobile')
+  localStorage.removeItem('auth_user_id')
+  localStorage.removeItem('auth_user_email')
+  notifyAuthChanged()
+}
+
 export function isAuthenticated(): boolean {
   const user = getSession()?.user
   return Boolean(user?.id && user.pinSet)
@@ -283,6 +301,20 @@ export async function loginWithPin(identifier: string, pin: string): Promise<Log
     await createOfflineCredential(user.mobile, pin, user)
     return { ok: true as const, user, mode: 'online_verified', next: res.next }
   } catch (error) {
+    if (isApiRequestError(error)) {
+      const payload = error.payload && typeof error.payload === 'object'
+        ? error.payload as { code?: string }
+        : undefined
+
+      if (payload?.code === 'INVALID_PIN' || error.status === 401) {
+        return { ok: false as const, reason: 'invalid_pin' as const }
+      }
+
+      if (error.status === 404) {
+        return { ok: false as const, reason: 'service_unavailable' as const }
+      }
+    }
+
     if (!navigator.onLine || isNetworkError(error)) {
       const offlineUser = await canLoginOffline(normalized, pin)
       if (offlineUser) {
@@ -293,10 +325,10 @@ export async function loginWithPin(identifier: string, pin: string): Promise<Log
         })
         return { ok: true as const, user: offlineUser, mode: 'offline_authenticated' }
       }
-      return { ok: false as const, reason: 'offline_unavailable' as const }
+      return { ok: false as const, reason: 'network_error' as const }
     }
 
-    return { ok: false as const, reason: 'invalid' as const }
+    return { ok: false as const, reason: 'offline_unavailable' as const }
   }
 }
 

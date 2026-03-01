@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import PinSetupInput from '../components/auth/PinSetupInput'
-import { setPinByMode } from '../services/auth'
+import { clearStoredAuthArtifacts, setPinByMode } from '../services/auth'
 import { clearAuthFlowState, getAuthFlowState } from '../services/authFlowState'
 
 function hasOtpContext(flowState: ReturnType<typeof getAuthFlowState>) {
@@ -84,6 +84,7 @@ export default function SetPin() {
       clearAuthFlowState()
 
       if (mode === 'reset') {
+        clearStoredAuthArtifacts()
         const message = result.message || 'PIN reset successful. Please sign in with your new PIN.'
         setSuccessMessage(message)
         nav('/login', { replace: true, state: { successMessage: message } })
