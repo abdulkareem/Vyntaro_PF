@@ -1,7 +1,11 @@
-import { Navigate } from 'react-router-dom'
-import { isAdminAuthenticated } from '../../services/adminAuth'
+import { Navigate, useLocation } from 'react-router-dom'
+import { clearAdminSession, isAdminAuthenticated } from '../../services/adminAuth'
 
 export default function AdminGuard({ children }: { children: JSX.Element }) {
-  if (!isAdminAuthenticated()) return <Navigate to="/admin/login" replace />
+  const location = useLocation()
+  if (!isAdminAuthenticated()) {
+    clearAdminSession()
+    return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />
+  }
   return children
 }

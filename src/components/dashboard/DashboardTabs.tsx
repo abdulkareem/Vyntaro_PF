@@ -2,11 +2,10 @@ import { NavLink } from 'react-router-dom'
 
 const tabs = [
   { to: '/dashboard', label: 'Home' },
-  { to: '/dashboard/transactions', label: 'Shops' },
-  { to: '/dashboard/ledgerentry', label: 'LedgerEntry' },
+  { to: '/dashboard/transactions', label: 'Transactions' },
+  { to: '/dashboard/ledgerentry', label: 'Ledger' },
   { to: '/dashboard/analytics', label: 'Insights' },
-  { to: '/dashboard/profile', label: 'Profile' },
-  { to: '/dashboard/profile?tab=settings', label: 'Settings' }
+  { to: '/dashboard/profile', label: 'Profile' }
 ]
 
 export default function DashboardTabs() {

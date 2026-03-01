@@ -1,9 +1,11 @@
 const ADMIN_TOKEN_KEY = 'admin_token'
 const ADMIN_PROFILE_KEY = 'admin_profile'
 
+export type AdminRole = 'ADMIN' | 'SUPER_ADMIN'
+
 export type AdminProfile = {
   name: string
-  role: 'ADMIN' | 'SUPER_ADMIN'
+  role: AdminRole
 }
 
 export function getAdminToken(): string | null {
@@ -22,10 +24,6 @@ export function clearAdminSession() {
   window.dispatchEvent(new Event('admin-auth-changed'))
 }
 
-export function isAdminAuthenticated() {
-  return Boolean(getAdminToken())
-}
-
 export function getAdminProfile(): AdminProfile | null {
   const raw = sessionStorage.getItem(ADMIN_PROFILE_KEY)
   if (!raw) return null
@@ -34,4 +32,14 @@ export function getAdminProfile(): AdminProfile | null {
   } catch {
     return null
   }
+}
+
+export function hasAdminRole(profile: AdminProfile | null): profile is AdminProfile {
+  return profile?.role === 'ADMIN' || profile?.role === 'SUPER_ADMIN'
+}
+
+export function isAdminAuthenticated() {
+  const token = getAdminToken()
+  const profile = getAdminProfile()
+  return Boolean(token) && hasAdminRole(profile)
 }

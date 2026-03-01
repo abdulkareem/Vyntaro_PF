@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import DashboardTabs from '../components/dashboard/DashboardTabs'
 import { currentUser, requestProfileUpdateOtp, updateProfile, verifyProfileUpdateOtp } from '../services/auth'
+import { toUserFacingError } from '../services/userMessage'
 
 export default function Profile() {
-  const user = currentUser()
+  const [user, setUser] = useState(currentUser())
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [email, setEmail] = useState(user?.email ?? '')
   const [mobile, setMobile] = useState(user?.mobile ?? '')
@@ -14,34 +15,57 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    const syncUser = () => {
+      const latest = currentUser()
+      setUser(latest)
+      setEmail(latest?.email ?? '')
+      setMobile(latest?.mobile ?? '')
+      setAvatarUrl(latest?.avatarUrl ?? '')
+    }
+
+    window.addEventListener('auth-changed', syncUser)
+    return () => window.removeEventListener('auth-changed', syncUser)
+  }, [])
+
   const hasChanges = useMemo(
     () => email !== (user?.email ?? '') || mobile !== (user?.mobile ?? '') || avatarUrl !== (user?.avatarUrl ?? ''),
     [avatarUrl, email, mobile, user?.avatarUrl, user?.email, user?.mobile]
   )
 
   const sendOtp = async () => {
+    if (!user) {
+      setError('Please sign in again to update profile settings.')
+      return
+    }
+
     setLoading(true)
     setError(null)
     setStatus(null)
     try {
-      const res = await requestProfileUpdateOtp({ mobile: user?.mobile, email: user?.email || undefined })
-      setStatus(import.meta.env.DEV && res.code ? `Dev OTP: ${res.code}` : 'OTP sent to your registered contact.')
-    } catch (e: any) {
-      setError(e?.message || 'Failed to send OTP.')
+      const res = await requestProfileUpdateOtp({ mobile: user.mobile, email: user.email || undefined })
+      setStatus(import.meta.env.DEV && res.code ? `Developer OTP: ${res.code}` : 'OTP sent to your registered contact.')
+    } catch (e: unknown) {
+      setError(toUserFacingError(e, 'Failed to send verification OTP.'))
     } finally {
       setLoading(false)
     }
   }
 
   const verifyOtp = async () => {
+    if (!user) {
+      setError('Please sign in again to continue.')
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const res = await verifyProfileUpdateOtp({ mobile: user?.mobile, email: user?.email || undefined, otp })
+      const res = await verifyProfileUpdateOtp({ mobile: user.mobile, email: user.email || undefined, otp })
       setOtpToken(res.token || otp)
       setStatus('OTP verified. You can save profile updates now.')
-    } catch (e: any) {
-      setError(e?.message || 'Invalid OTP.')
+    } catch (e: unknown) {
+      setError(toUserFacingError(e, 'Invalid OTP. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -57,12 +81,13 @@ export default function Profile() {
     setError(null)
     try {
       await updateProfile({ email, mobile, avatarUrl, otpToken })
+      setUser(currentUser())
       setStatus('Profile updated successfully.')
       setOtp('')
       setOtpToken('')
       setSettingsOpen(false)
-    } catch (e: any) {
-      setError(e?.message || 'Failed to update profile.')
+    } catch (e: unknown) {
+      setError(toUserFacingError(e, 'Failed to update profile settings.'))
     } finally {
       setLoading(false)
     }

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom'
 import Register from './screens/Register'
 import Verify from './screens/Verify'
 import SetPin from './screens/SetPin'
@@ -16,6 +16,7 @@ import Shell from './shell/Shell'
 import { isAuthenticated, requiresPinSetup } from './services/auth'
 
 import AdminGuard from './admin/components/AdminGuard'
+import { isAdminAuthenticated } from './services/adminAuth'
 import AdminLayout from './admin/components/AdminLayout'
 import AdminLogin from './admin/screens/AdminLogin'
 import AdminDashboard from './admin/screens/AdminDashboard'
@@ -27,18 +28,29 @@ import AdminActivity from './admin/screens/AdminActivity'
 
 
 
+
 function PublicOnly({ children }: { children: JSX.Element }) {
-  if (isAuthenticated()) return <Navigate to="/dashboard" replace />
+  const location = useLocation()
+  if (isAuthenticated()) {
+    const redirectTarget = requiresPinSetup() ? '/set-pin' : '/dashboard'
+    return <Navigate to={redirectTarget} replace state={{ from: location.pathname }} />
+  }
   return children
 }
 
 function Protected({ children }: { children: JSX.Element }) {
-  if (!isAuthenticated()) return <Navigate to="/login" replace />
+  const location = useLocation()
+  if (!isAuthenticated()) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   return children
 }
 
 function PinSetupGuard({ children }: { children: JSX.Element }) {
   if (requiresPinSetup()) return <Navigate to="/set-pin" replace />
+  return children
+}
+
+function AdminPublicOnly({ children }: { children: JSX.Element }) {
+  if (isAdminAuthenticated()) return <Navigate to="/admin/dashboard" replace />
   return children
 }
 
@@ -66,7 +78,7 @@ const router = createBrowserRouter([
       { path: 'dashboard/ledgerentry/new', element: <Protected><PinSetupGuard><LedgerEntryForm /></PinSetupGuard></Protected> },
       { path: 'dashboard/analytics', element: <Protected><PinSetupGuard><Analytics /></PinSetupGuard></Protected> },
       { path: 'dashboard/profile', element: <Protected><PinSetupGuard><Profile /></PinSetupGuard></Protected> },
-      { path: 'admin/login', element: <AdminLogin /> },
+      { path: 'admin/login', element: <AdminPublicOnly><AdminLogin /></AdminPublicOnly> },
       {
         path: 'admin',
         element: <AdminGuard><AdminLayout /></AdminGuard>,
