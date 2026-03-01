@@ -43,6 +43,7 @@ if (import.meta.env.DEV) {
 
 export function apiUrl(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  assertApiBaseConfigured()
   if (!API_BASE_URL) return normalizedPath
   return `${API_BASE_URL}${normalizedPath}`
 }
