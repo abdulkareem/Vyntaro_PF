@@ -26,6 +26,12 @@ import AdminSettings from './admin/screens/AdminSettings'
 import AdminActivity from './admin/screens/AdminActivity'
 
 
+
+function PublicOnly({ children }: { children: JSX.Element }) {
+  if (isAuthenticated()) return <Navigate to="/dashboard" replace />
+  return children
+}
+
 function Protected({ children }: { children: JSX.Element }) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />
   return children
@@ -46,11 +52,11 @@ const router = createBrowserRouter([
     element: <Shell />,
     children: [
       { index: true, element: <Navigate to="/login" replace /> },
-      { path: 'register', element: <Register /> },
-      { path: 'verify', element: <Verify /> },
-      { path: 'set-pin', element: <SetPin /> },
+      { path: 'register', element: <PublicOnly><Register /></PublicOnly> },
+      { path: 'verify', element: <PublicOnly><Verify /></PublicOnly> },
+      { path: 'set-pin', element: <PublicOnly><SetPin /></PublicOnly> },
       { path: 'set-pin/:legacyMode', element: <LegacySetPinRedirect /> },
-      { path: 'login', element: <Login /> },
+      { path: 'login', element: <PublicOnly><Login /></PublicOnly> },
       { path: 'forgot-pin', element: <ForgotPin /> },
       { path: 'reset-pin', element: <ForgotPin /> },
       { path: 'change-pin', element: <Protected><PinSetupGuard><ChangePin /></PinSetupGuard></Protected> },
