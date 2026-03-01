@@ -12,7 +12,7 @@ const dateOffsets = ['Yesterday', 'Today', 'Tomorrow']
 
 const sidebarItems = [
   { to: '/dashboard', label: 'Overview' },
-  { to: '/dashboard/transactions', label: 'My Finances' },
+  { to: '/dashboard/ledgerentry', label: 'My Finances' },
   { to: '/dashboard/ledgerentry', label: 'Nearby Stores' },
   { to: '/dashboard/analytics', label: 'Auto Bookings' },
   { to: '/dashboard/insights/health', label: 'Analytics' },

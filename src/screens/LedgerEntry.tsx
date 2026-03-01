@@ -3,10 +3,10 @@ import DashboardTabs from '../components/dashboard/DashboardTabs'
 import { useDashboardData } from '../hooks/useDashboardData'
 
 const entryTypes = [
-  { id: 'expense', title: 'Add Expense', subtitle: 'Track daily spending and build better money habits.', icon: '💸' },
-  { id: 'income', title: 'Add Income', subtitle: 'Log salary, freelance credits, and cash inflows.', icon: '💰' },
-  { id: 'bill', title: 'Add Bill', subtitle: 'Store recurring utilities and invoice records.', icon: '🧾' },
-  { id: 'ledger', title: 'Add Ledger Entry', subtitle: 'Track loans, lent amounts, and settlements.', icon: '📒' }
+  { id: 'expense', title: 'Add Money Outflow', subtitle: 'Track daily spending and business outflows.', icon: '💸' },
+  { id: 'income', title: 'Add Money In Flow', subtitle: 'Log salary, freelance credits, and cash inflows.', icon: '💰' },
+  { id: 'bill', title: 'Scan the Bill', subtitle: 'Capture bills quickly and auto-fill amount details.', icon: '📷' },
+  { id: 'ledger', title: 'Track Loan / Money Lent', subtitle: 'Record loans, money lent, charity, and settlements.', icon: '📒' }
 ] as const
 
 export default function LedgerEntry() {
