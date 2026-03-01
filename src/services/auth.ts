@@ -11,6 +11,7 @@ import {
   startPinResetApi,
   updatePinApi,
   updateProfileApi,
+  fetchProfileMeApi,
   verifyPinResetApi,
   verifyOtpApi
 } from './api/authApi'
@@ -137,13 +138,13 @@ function clearPendingRegistration() {
   storage.del(PENDING_REG_KEY)
 }
 
-function mapUser(input: { id: string; phone: string; email?: string | null; verifiedAt?: string | null; avatarUrl?: string | null; pinSet?: boolean; role?: string }, name?: string): AppUser {
+function mapUser(input: { id: string; phone: string; name?: string | null; email?: string | null; verifiedAt?: string | null; avatarUrl?: string | null; pinSet?: boolean; role?: string }, name?: string): AppUser {
   return {
     id: input.id,
     mobile: input.phone,
     email: input.email,
     verifiedAt: input.verifiedAt,
-    name,
+    name: name ?? input.name ?? undefined,
     avatarUrl: input.avatarUrl,
     trustedDevices: [],
     pinSet: Boolean(input.pinSet),
@@ -429,6 +430,37 @@ export function completeOtpSession(input: { id?: string; phone: string; name?: s
 
 export function currentUser(): AppUser | null {
   return getSession()?.user ?? null
+}
+
+
+export async function hydrateCurrentUserFromProfile() {
+  const current = getSession()
+  if (!current?.user?.id) return null
+
+  try {
+    const profile = await fetchProfileMeApi()
+    const resolvedPhone = profile.phone || profile.mobile || current.user.mobile
+    const user = mapUser({
+      id: profile.id || current.user.id,
+      phone: resolvedPhone,
+      name: profile.name,
+      email: profile.email ?? current.user.email,
+      verifiedAt: profile.verifiedAt ?? current.user.verifiedAt,
+      avatarUrl: profile.avatarUrl ?? current.user.avatarUrl,
+      pinSet: typeof profile.pinSet === 'boolean' ? profile.pinSet : current.user.pinSet,
+      role: profile.role ?? current.user.role
+    }, profile.name || current.user.name)
+
+    setSession({
+      ...current,
+      user,
+      lastValidatedAt: new Date().toISOString()
+    })
+
+    return user
+  } catch {
+    return current.user
+  }
 }
 
 export async function startPinReset(identifier: { phone?: string; email?: string }): Promise<PinResetRequestResult> {

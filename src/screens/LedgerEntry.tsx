@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom'
-import DashboardTabs from '../components/dashboard/DashboardTabs'
 import { useDashboardData } from '../hooks/useDashboardData'
 
 const entryTypes = [
   { id: 'expense', title: 'Add Money Outflow', subtitle: 'Track daily spending and business outflows.', icon: '💸' },
   { id: 'income', title: 'Add Money In Flow', subtitle: 'Log salary, freelance credits, and cash inflows.', icon: '💰' },
   { id: 'bill', title: 'Scan the Bill', subtitle: 'Capture bills quickly and auto-fill amount details.', icon: '📷' },
-  { id: 'ledger', title: 'Track Loan / Money Lent', subtitle: 'Record loans, money lent, charity, and settlements.', icon: '📒' }
+  { id: 'ledger', title: 'Add Inflow / Outflow', subtitle: 'Choose money inflow or outflow in one focused form.', icon: '📒' },
+  { id: 'loan', title: 'Track Loan / Money Lent', subtitle: 'Record loan money lent and repayment tracking entries.', icon: '🤝' }
 ] as const
 
 export default function LedgerEntry() {
@@ -20,8 +20,10 @@ export default function LedgerEntry() {
 
   return (
     <main className="dashboard-page">
-      <DashboardTabs />
-      <h2 className="screen-title">Ledger</h2>
+      <div className="ledger-form-header">
+        <h2 className="screen-title">Ledger</h2>
+        <button type="button" className="header-btn" onClick={() => navigate('/dashboard')}>Back</button>
+      </div>
       <p className="dashboard-subtitle">Fast, clear, and habit-building entries for every money movement.</p>
 
       <section className="dashboard-card fade-in-up">
