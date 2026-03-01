@@ -35,6 +35,7 @@ export type AppUser = {
 type Session = {
   user: AppUser
   accessToken?: string
+  token?: string
   refreshToken?: string
   expiresAt?: string
   authStatus: AuthStatus
@@ -82,18 +83,32 @@ type OfflineCredential = {
 }
 
 const SESSION_KEY = 'session'
+const AUTH_TOKEN_KEY = 'authToken'
+const CURRENT_USER_KEY = 'currentUser'
 const PENDING_REG_KEY = 'pending_registration'
 const OFFLINE_AUTH_KEY = 'offline_auth_credential'
 
 const storage = {
   read<T>(k: string, d: T): T {
+    const v = sessionStorage.getItem(k)
+    if (v) return JSON.parse(v) as T
+
+    const legacy = localStorage.getItem(k)
+    if (!legacy) return d
+
+    sessionStorage.setItem(k, legacy)
+    localStorage.removeItem(k)
+    return JSON.parse(legacy) as T
+  },
+  readLocal<T>(k: string, d: T): T {
     const v = localStorage.getItem(k)
     return v ? JSON.parse(v) as T : d
   },
   write<T>(k: string, v: T) {
-    localStorage.setItem(k, JSON.stringify(v))
+    sessionStorage.setItem(k, JSON.stringify(v))
   },
   del(k: string) {
+    sessionStorage.removeItem(k)
     localStorage.removeItem(k)
   }
 }
@@ -103,7 +118,10 @@ function notifyAuthChanged() {
 }
 
 function setSession(session: NonNullable<Session>) {
+  const accessToken = session.accessToken || session.token
   storage.write<Session>(SESSION_KEY, session)
+  if (accessToken) storage.write(AUTH_TOKEN_KEY, accessToken)
+  storage.write(CURRENT_USER_KEY, session.user)
   notifyAuthChanged()
 }
 
@@ -171,6 +189,11 @@ async function canLoginOffline(mobile: string, pin: string): Promise<AppUser | n
 }
 
 export function getSession(): Session {
+  const localLegacy = storage.readLocal<Session>(SESSION_KEY, null)
+  if (localLegacy) {
+    storage.write(SESSION_KEY, localLegacy)
+    localStorage.removeItem(SESSION_KEY)
+  }
   return storage.read<Session>(SESSION_KEY, null)
 }
 
@@ -180,11 +203,15 @@ export function getAuthStatus(): AuthStatus | null {
 
 export function logout() {
   storage.del(SESSION_KEY)
+  storage.del(AUTH_TOKEN_KEY)
+  storage.del(CURRENT_USER_KEY)
   notifyAuthChanged()
 }
 
 export function clearStoredAuthArtifacts() {
   storage.del(SESSION_KEY)
+  storage.del(AUTH_TOKEN_KEY)
+  storage.del(CURRENT_USER_KEY)
   storage.del(OFFLINE_AUTH_KEY)
   localStorage.removeItem('auth_phone')
   localStorage.removeItem('auth_user_mobile')
@@ -287,20 +314,46 @@ export async function loginWithPin(identifier: string, pin: string): Promise<Log
       identifier: normalized
     })
     const pending = getPendingRegistration()
-    const user = mapUser(res.user, pending?.name)
+    const payload = res as typeof res & {
+      success?: boolean
+      token?: string
+      data?: {
+        user?: typeof res.user
+        accessToken?: string
+        refreshToken?: string
+        expiresAt?: string
+        next?: string
+      }
+    }
+
+    const isSuccessful = payload.ok === true || payload.success === true
+    if (!isSuccessful) {
+      return { ok: false as const, reason: 'service_unavailable' as const }
+    }
+
+    const resolvedUser = payload.user || payload.data?.user
+    if (!resolvedUser) return { ok: false as const, reason: 'service_unavailable' as const }
+
+    const user = mapUser(resolvedUser, pending?.name)
     if (!user.pinSet) return { ok: false, reason: 'pin_not_set' }
+
+    const accessToken = payload.accessToken || payload.data?.accessToken || payload.token
+    const refreshToken = payload.refreshToken || payload.data?.refreshToken
+    const expiresAt = payload.expiresAt || payload.data?.expiresAt
+    const nextRoute = payload.next || payload.data?.next
 
     const now = new Date().toISOString()
     setSession({
       user,
-      accessToken: res.accessToken,
-      refreshToken: res.refreshToken,
-      expiresAt: res.expiresAt,
+      accessToken,
+      token: payload.token,
+      refreshToken,
+      expiresAt,
       authStatus: 'online_verified',
       lastValidatedAt: now
     })
     await createOfflineCredential(user.mobile, pin, user)
-    return { ok: true as const, user, mode: 'online_verified', next: res.next }
+    return { ok: true as const, user, mode: 'online_verified', next: nextRoute }
   } catch (error) {
     if (isApiRequestError(error)) {
       const payload = error.payload && typeof error.payload === 'object'

@@ -4,7 +4,6 @@ import { loginWithPin } from '../services/auth'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import PinInput from '../components/auth/PinInput'
 import { clearAuthFlowState } from '../services/authFlowState'
-import { resolveNextRoute } from '../services/authFlowNavigator'
 
 export default function Login() {
   const nav = useNavigate()
@@ -39,7 +38,7 @@ export default function Login() {
         localStorage.setItem('auth_user_mobile', res.user.mobile)
         localStorage.setItem('auth_user_id', res.user.id)
         localStorage.setItem('auth_user_email', res.user.email || '')
-        nav(resolveNextRoute(res.next, '/dashboard'), { replace: true })
+        nav('/dashboard', { replace: true })
         return
       }
 
