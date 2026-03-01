@@ -7,6 +7,8 @@ import {
   createLedgerEntry,
   fetchLedgerCategories
 } from '../services/api/ledgerApi'
+import { ApiRequestError } from '../services/api/httpClient'
+import { clearDashboardCache } from '../hooks/useDashboardData'
 
 type EntryType = 'expense' | 'income' | 'bill' | 'ledger'
 
@@ -32,16 +34,19 @@ export default function LedgerEntryForm() {
   const [newCategory, setNewCategory] = useState('')
   const [categories, setCategories] = useState<LedgerCategory[]>([])
   const [busy, setBusy] = useState(false)
+  const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
+    setCategoriesLoading(true)
     fetchLedgerCategories(type)
       .then(values => {
         setCategories(values)
         if (values[0]) setCategoryId(values[0].id)
       })
       .catch(() => setCategories([]))
+      .finally(() => setCategoriesLoading(false))
   }, [type])
 
   const headerText = useMemo(() => `${entryLabels[type]} Entry`, [type])
@@ -66,6 +71,11 @@ export default function LedgerEntryForm() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (categoriesLoading) {
+      setError('Categories are still loading. Please wait a moment and try again.')
+      return
+    }
+
     setBusy(true)
     setMessage('')
     setError('')
@@ -80,12 +90,20 @@ export default function LedgerEntryForm() {
         categoryId: categoryId || undefined,
         categoryName: categoryId ? undefined : newCategory.trim() || undefined
       })
-      setMessage(`${headerText} saved successfully.`)
-      setItem('')
-      setParticulars('')
-      setAmount('')
-      setNewCategory('')
+      clearDashboardCache()
+      navigate('/dashboard', { replace: true, state: { refreshDashboard: true } })
     } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 401) {
+        setError('Your session expired. Please log in again and retry.')
+        navigate('/login', { replace: true })
+        return
+      }
+
+      if (err instanceof ApiRequestError && err.status === 404) {
+        setError('Ledger entry API route is unavailable. Please verify backend route configuration.')
+        return
+      }
+
       setError(err instanceof Error ? err.message : 'Unable to save entry.')
     } finally {
       setBusy(false)
@@ -147,7 +165,7 @@ export default function LedgerEntryForm() {
 
           <label className="ledger-field">
             <span>Category</span>
-            <select value={categoryId} onChange={e => setCategoryId(e.target.value)}>
+            <select value={categoryId} onChange={e => setCategoryId(e.target.value)} disabled={categoriesLoading || busy}>
               <option value="">Select category</option>
               {categories.map(category => (
                 <option key={category.id} value={category.id}>{category.name}</option>
@@ -164,16 +182,17 @@ export default function LedgerEntryForm() {
                 onChange={e => setNewCategory(e.target.value)}
                 placeholder="Create a new category"
               />
-              <button type="button" className="header-btn" onClick={handleAddCategory} disabled={busy}>
+              <button type="button" className="header-btn" onClick={handleAddCategory} disabled={busy || categoriesLoading}>
                 Add
               </button>
             </div>
           </div>
 
-          <button type="submit" className="neo-btn neo-btn-primary" disabled={busy}>
+          <button type="submit" className="neo-btn neo-btn-primary" disabled={busy || categoriesLoading}>
             {busy ? 'Saving…' : `Save ${entryLabels[type]} Entry`}
           </button>
 
+          {categoriesLoading ? <p className="dashboard-subtitle">Loading categories…</p> : null}
           {message && <p className="neo-success">{message}</p>}
           {error && <p className="error">{error}</p>}
         </form>

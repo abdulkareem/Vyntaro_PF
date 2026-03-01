@@ -225,6 +225,25 @@ async function fetchInsights(month: number, year: number): Promise<DashboardInsi
   }
 }
 
+const defaultInsights: DashboardInsights = {
+  financialHealth: { score: 0, label: 'Average' },
+  netWorth: { netWorth: 0, savingsThisMonth: 0 },
+  expenseBreakdown: [],
+  alerts: [],
+  prediction: { projectedBalance: 0 },
+  lendingSummary: {
+    totalLent: 0,
+    totalLoan: 0,
+    breakdown: [],
+    agingBuckets: [
+      { bucket: '0-30', count: 0, amount: 0 },
+      { bucket: '31-60', count: 0, amount: 0 },
+      { bucket: '61-90', count: 0, amount: 0 },
+      { bucket: '90+', count: 0, amount: 0 }
+    ]
+  }
+}
+
 export async function fetchDashboard(): Promise<DashboardData> {
   const user = currentUser()
   const displayName = user?.name || 'John Doe'
@@ -261,7 +280,14 @@ export async function fetchDashboard(): Promise<DashboardData> {
     .filter((result): result is PromiseFulfilledResult<LedgerCategory[]> => result.status === 'fulfilled')
     .flatMap(result => result.value)
 
-  const entries = await fetchLedgerEntries()
+  let entries: Awaited<ReturnType<typeof fetchLedgerEntries>> = []
+  try {
+    entries = await fetchLedgerEntries()
+  } catch (entryError) {
+    if (entryError instanceof ApiRequestError && entryError.status === 401) {
+      throw entryError
+    }
+  }
   const metricCards = buildMetricCards(categories, entries)
   const income = entries
     .filter(entry => normalizeType(entry.type) === 'income')
@@ -303,7 +329,31 @@ export async function fetchDashboard(): Promise<DashboardData> {
   ]
 
   const now = new Date()
-  const insights = await fetchInsights(now.getMonth() + 1, now.getFullYear())
+  let insights = defaultInsights
+  try {
+    insights = await fetchInsights(now.getMonth() + 1, now.getFullYear())
+  } catch (insightError) {
+    if (insightError instanceof ApiRequestError && insightError.status === 401) {
+      throw insightError
+    }
+
+    const savingsThisMonth = Math.max(income - expense, 0)
+    const lendingExposure = defaultInsights.lendingSummary.totalLent + defaultInsights.lendingSummary.totalLoan
+    const budgetUsage = expense > 0 && income > 0 ? Math.min(expense / income, 1) : 0
+    const health = calculateFinancialHealth(income, expense, savingsThisMonth, lendingExposure, budgetUsage)
+
+    insights = {
+      ...defaultInsights,
+      financialHealth: health,
+      netWorth: {
+        netWorth: balance,
+        savingsThisMonth
+      },
+      prediction: {
+        projectedBalance: balance
+      }
+    }
+  }
 
   return {
     userName: displayName,
