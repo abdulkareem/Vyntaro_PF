@@ -13,6 +13,7 @@ export default function Login() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [serviceUnavailable, setServiceUnavailable] = useState(false)
   const [authMode, setAuthMode] = useState<'online_verified' | 'offline_authenticated' | null>(null)
 
   const isEmail = useMemo(() => identifier.includes('@'), [identifier])
@@ -26,6 +27,7 @@ export default function Login() {
     if (pin.length !== 4) return setError('Enter the full 4-digit PIN.')
 
     setError('')
+    setServiceUnavailable(false)
     setLoading(true)
 
     try {
@@ -48,11 +50,28 @@ export default function Login() {
       }
 
       if (res.reason === 'offline_unavailable') {
-        setError('Offline login is unavailable for this account on this device. Reconnect and try again.')
+        setError('Unable to verify login at the moment. Please retry.')
         return
       }
 
-      setError('Invalid PIN. Please try again or reset your PIN.')
+      if (res.reason === 'service_unavailable') {
+        setServiceUnavailable(true)
+        setError('Login service unavailable. Please try again.')
+        return
+      }
+
+      if (res.reason === 'network_error') {
+        setServiceUnavailable(true)
+        setError('Network error. Try again.')
+        return
+      }
+
+      if (res.reason === 'invalid_pin') {
+        setError('Invalid PIN')
+        return
+      }
+
+      setError('Unable to verify login at the moment. Please retry.')
     } catch {
       setError('Unable to verify PIN. Please try again.')
     } finally {
@@ -76,13 +95,28 @@ export default function Login() {
           <p className="neo-success">{location.state.successMessage}</p>
         )}
 
-        <button className="neo-btn neo-btn-primary" onClick={handleSubmit} disabled={loading}>
+        <button className="neo-btn neo-btn-primary" onClick={handleSubmit} disabled={loading || serviceUnavailable}>
           {loading ? 'Verifying...' : 'Login'}
         </button>
 
-        <button className="neo-btn neo-btn-link" onClick={() => nav(`/forgot-pin?${isEmail ? `email=${encodeURIComponent(identifier.trim())}` : `phone=${encodeURIComponent(identifier.trim())}`}`)}>
-          Reset PIN
-        </button>
+        {serviceUnavailable && (
+          <button
+            className="neo-btn neo-btn-link"
+            type="button"
+            onClick={() => {
+              setServiceUnavailable(false)
+              setError('')
+            }}
+          >
+            Retry Login
+          </button>
+        )}
+
+        {!serviceUnavailable && (
+          <button className="neo-btn neo-btn-link" onClick={() => nav(`/forgot-pin?${isEmail ? `email=${encodeURIComponent(identifier.trim())}` : `phone=${encodeURIComponent(identifier.trim())}`}`)}>
+            Reset PIN
+          </button>
+        )}
 
         {authMode === 'offline_authenticated' && <p className="neo-auth-sub">Logged in using offline trust for this device.</p>}
         <button className="neo-btn neo-btn-ghost" onClick={() => nav('/register')}>New user? Register</button>
