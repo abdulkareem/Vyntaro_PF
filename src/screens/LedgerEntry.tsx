@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardTabs from '../components/dashboard/DashboardTabs'
-import { BudgetItem, fetchDashboard } from '../services/api/dashboardApi'
+import { useDashboardData } from '../hooks/useDashboardData'
 
 const entryTypes = [
   { id: 'expense', title: 'Add Expense', subtitle: 'Track daily spending and build better money habits.', icon: '💸' },
@@ -12,11 +11,8 @@ const entryTypes = [
 
 export default function LedgerEntry() {
   const navigate = useNavigate()
-  const [budgets, setBudgets] = useState<BudgetItem[]>([])
-
-  useEffect(() => {
-    fetchDashboard().then(data => setBudgets(data.budgets))
-  }, [])
+  const { data, loading, error, refresh, retryable } = useDashboardData()
+  const budgets = data?.budgets ?? []
 
   const openEntryForm = (type: string) => {
     navigate(`/dashboard/ledgerentry/new?type=${encodeURIComponent(type)}`)
@@ -25,7 +21,7 @@ export default function LedgerEntry() {
   return (
     <main className="dashboard-page">
       <DashboardTabs />
-      <h2 className="screen-title">Ledger Entry Hub</h2>
+      <h2 className="screen-title">Ledger</h2>
       <p className="dashboard-subtitle">Fast, clear, and habit-building entries for every money movement.</p>
 
       <section className="dashboard-card fade-in-up">
@@ -41,26 +37,46 @@ export default function LedgerEntry() {
         </div>
       </section>
 
-      <section className="dashboard-card fade-in-up">
-        <h3 className="card-heading">Monthly Category Progress</h3>
-        <p className="dashboard-subtitle">Use this to identify overspending early and stay on course.</p>
-        <div className="budgets-grid">
-          {budgets.map(budget => {
-            const usedPercent = Math.min(100, (budget.used / budget.total) * 100)
-            return (
-              <article key={budget.id} className="budget-card">
-                <div className="budget-row">
-                  <strong>{budget.name}</strong>
-                  <span>₹{budget.used} / ₹{budget.total}</span>
-                </div>
-                <div className="budget-track">
-                  <div className="budget-fill" style={{ width: `${usedPercent}%` }} />
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      </section>
+      {loading && (
+        <section className="dashboard-card fade-in-up skeleton-card">
+          <div className="skeleton-line" />
+          <div className="skeleton-line" />
+        </section>
+      )}
+
+      {!loading && error && (
+        <section className="dashboard-card fade-in-up">
+          <p className="error">{error}</p>
+          {retryable ? <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry</button> : null}
+        </section>
+      )}
+
+      {!loading && !error && (
+        <section className="dashboard-card fade-in-up">
+          <h3 className="card-heading">Monthly Category Progress</h3>
+          <p className="dashboard-subtitle">Use this to identify overspending early and stay on course.</p>
+          {budgets.length === 0 ? (
+            <p className="dashboard-subtitle">No categories yet.</p>
+          ) : (
+            <div className="budgets-grid">
+              {budgets.map(budget => {
+                const usedPercent = Math.min(100, (budget.used / budget.total) * 100)
+                return (
+                  <article key={budget.id} className="budget-card">
+                    <div className="budget-row">
+                      <strong>{budget.name}</strong>
+                      <span>₹{budget.used} / ₹{budget.total}</span>
+                    </div>
+                    <div className="budget-track">
+                      <div className="budget-fill" style={{ width: `${usedPercent}%` }} />
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
     </main>
   )
 }
