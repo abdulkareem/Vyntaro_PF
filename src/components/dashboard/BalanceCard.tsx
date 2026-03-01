@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { DashboardMetricCard } from '../../services/api/dashboardApi'
+import { formatCurrency, resolveCurrencyCode } from '../../lib/finance'
 
 type BalanceCardProps = {
   monthLabel: string
@@ -8,8 +9,6 @@ type BalanceCardProps = {
   expense: number
   metricCards: DashboardMetricCard[]
 }
-
-const formatMoney = (value: number) => `$${value.toFixed(2)}`
 
 const metricTone = (name: string) => {
   const tone = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
@@ -24,27 +23,34 @@ export default function BalanceCard({
   expense,
   metricCards
 }: BalanceCardProps) {
+  const currencyCode = resolveCurrencyCode()
+
   return (
     <div className="dashboard-card balance-card fade-in-up">
-      <p className="balance-month">{monthLabel}</p>
-      <p className="balance-label">Current Balance</p>
-      <h2 className="balance-value">{formatMoney(balance)}</h2>
+      <div className="section-head-inline">
+        <div>
+          <p className="balance-month">{monthLabel}</p>
+          <p className="balance-label">Current Balance</p>
+        </div>
+        <Link to="/dashboard/balance" className="card-inline-link">Balance details →</Link>
+      </div>
+      <h2 className="balance-value">{formatCurrency(balance, currencyCode)}</h2>
 
       <div className="balance-metrics balance-metrics-extended">
-        <Link to="/dashboard/analytics" className="balance-metric income metric-link">
+        <Link to="/dashboard/analytics/income" className="balance-metric income metric-link">
           <p>Income</p>
-          <strong>{formatMoney(income)}</strong>
+          <strong>{formatCurrency(income, currencyCode)}</strong>
         </Link>
-        <Link to="/dashboard/analytics" className="balance-metric expense metric-link">
+        <Link to="/dashboard/analytics/expenses" className="balance-metric expense metric-link">
           <p>Expense</p>
-          <strong>{formatMoney(expense)}</strong>
+          <strong>{formatCurrency(expense, currencyCode)}</strong>
         </Link>
         {metricCards
           .filter(card => !['income', 'expense'].includes(card.name.toLowerCase()))
           .map(card => (
             <Link key={card.id} to={card.href} className={`balance-metric ${metricTone(card.name)} metric-link`}>
               <p>{card.name}</p>
-              <strong>{formatMoney(card.amount)}</strong>
+              <strong>{formatCurrency(card.amount, currencyCode)}</strong>
             </Link>
           ))}
       </div>

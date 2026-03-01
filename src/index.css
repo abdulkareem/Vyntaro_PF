@@ -1336,3 +1336,21 @@ body[data-theme='light'] .aging-bucket {
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
 }
+
+.section-head-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.card-inline-link {
+  color: #67e8f9;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.card-inline-link:hover {
+  text-decoration: underline;
+}

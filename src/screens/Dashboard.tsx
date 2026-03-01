@@ -6,21 +6,9 @@ import DashboardTabs from '../components/dashboard/DashboardTabs'
 import TransactionList from '../components/dashboard/TransactionList'
 import { DashboardData, ExpenseBreakdownItem, SmartAlert } from '../services/api/dashboardApi'
 import { useDashboardData } from '../hooks/useDashboardData'
+import { formatCurrency, resolveCurrencyCode } from '../lib/finance'
 
 const dateOffsets = ['Yesterday', 'Today', 'Tomorrow']
-
-function resolveCurrencyCode() {
-  const locale = navigator.language.toLowerCase()
-  return locale.includes('in') ? 'INR' : 'USD'
-}
-
-function formatCurrency(value: number, currencyCode: string) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currencyCode,
-    maximumFractionDigits: 2
-  }).format(value)
-}
 
 function scoreTone(label: DashboardData['insights']['financialHealth']['label']) {
   if (label === 'Good') return 'health-good'
@@ -147,6 +135,7 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <div className="financial-health-head">
           <h3 className="card-heading">Financial Health Score</h3>
+          <Link to="/dashboard/insights/health" className="card-inline-link">Details →</Link>
           <span className={`health-badge ${scoreTone(dashboard.insights.financialHealth.label)}`}>{dashboard.insights.financialHealth.label}</span>
         </div>
         <div className="financial-health-content">
@@ -156,7 +145,10 @@ export default function Dashboard() {
       </section>
 
       <section className="dashboard-card fade-in-up">
-        <h3 className="card-heading">Net Worth & Savings</h3>
+        <div className="section-head-inline">
+          <h3 className="card-heading">Net Worth & Savings</h3>
+          <Link to="/dashboard/balance" className="card-inline-link">Open overview →</Link>
+        </div>
         <div className="today-grid budget-grid">
           <article className="today-item budget"><span>Net Worth</span><strong>{formatCurrency(dashboard.insights.netWorth.netWorth, currencyCode)}</strong></article>
           <article className="today-item budget"><span>Savings (This Month)</span><strong>{formatCurrency(dashboard.insights.netWorth.savingsThisMonth, currencyCode)}</strong></article>
@@ -164,7 +156,7 @@ export default function Dashboard() {
       </section>
 
       <section className="dashboard-card fade-in-up">
-        <h3 className="card-heading">Expense Breakdown</h3>
+        <div className="section-head-inline"><h3 className="card-heading">Expense Breakdown</h3><Link to="/dashboard/analytics/expenses" className="card-inline-link">All categories →</Link></div>
         {dashboard.ledgerCategoriesState.message ? (
           <div>
             <p className="dashboard-subtitle">{dashboard.ledgerCategoriesState.message}</p>
@@ -178,7 +170,7 @@ export default function Dashboard() {
         ) : (
           <div className="expense-breakdown-list">
             {dashboard.insights.expenseBreakdown.map(item => (
-              <article key={item.category} className="expense-breakdown-row">
+              <Link key={item.category} to={`/dashboard/categories/${encodeURIComponent(item.category)}`} className="expense-breakdown-row">
                 <div className="expense-breakdown-head">
                   <span>{item.category}</span>
                   <strong>{formatCurrency(item.amount, currencyCode)}</strong>
@@ -189,14 +181,14 @@ export default function Dashboard() {
                     style={{ width: `${maxExpenseCategory > 0 ? (item.amount / maxExpenseCategory) * 100 : 0}%` }}
                   />
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         )}
       </section>
 
       <section className="dashboard-card fade-in-up">
-        <h3 className="card-heading">Smart Alerts</h3>
+        <div className="section-head-inline"><h3 className="card-heading">Smart Alerts</h3><Link to="/dashboard/insights/alerts" className="card-inline-link">View all →</Link></div>
         {dashboard.insights.alerts.length === 0 ? (
           <p className="dashboard-subtitle">No alerts right now. Keep up the good momentum.</p>
         ) : (
@@ -212,7 +204,7 @@ export default function Dashboard() {
       </section>
 
       <section className="dashboard-card fade-in-up">
-        <h3 className="card-heading">Predictive Monthly Balance</h3>
+        <div className="section-head-inline"><h3 className="card-heading">Predictive Monthly Balance</h3><Link to="/dashboard/insights/prediction" className="card-inline-link">Forecast details →</Link></div>
         <p className="dashboard-subtitle">At current pace, your projected end-of-month balance is:</p>
         <p className="prediction-value">{formatCurrency(dashboard.insights.prediction.projectedBalance, currencyCode)}</p>
       </section>
@@ -221,6 +213,7 @@ export default function Dashboard() {
         <details className="lending-details">
           <summary className="lending-summary-head">
             <h3 className="card-heading">Money Lent / Loan Intelligence</h3>
+            <Link to="/dashboard/lending" className="card-inline-link">Full ledger →</Link>
             <span>Expand</span>
           </summary>
 
@@ -263,6 +256,7 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <div className="bills-head">
           <h3 className="card-heading">Today's Snapshot</h3>
+          <Link to="/dashboard/snapshot" className="card-inline-link">Open daily view →</Link>
           <div className="date-switcher" aria-label="Move date">
             <button
               type="button"
@@ -299,7 +293,7 @@ export default function Dashboard() {
       </section>
 
       <section className="dashboard-card fade-in-up">
-        <h3 className="card-heading">Budget Overview</h3>
+        <div className="section-head-inline"><h3 className="card-heading">Budget Overview</h3><Link to="/dashboard/budgets" className="card-inline-link">Manage budgets →</Link></div>
         <div className="today-grid budget-grid">
           <article className="today-item budget"><span>Monthly Budget</span><strong>{formatCurrency(dashboard.budgetSummary.monthly, currencyCode)}</strong></article>
           <article className="today-item budget"><span>Yearly Budget</span><strong>{formatCurrency(dashboard.budgetSummary.yearly, currencyCode)}</strong></article>
@@ -312,7 +306,7 @@ export default function Dashboard() {
           <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Refresh</button>
         </div>
         <div className="job-grid">
-          {dashboard.jobs.map(job => (
+          {dashboard.jobs.length === 0 ? <p className="dashboard-subtitle">No quick actions configured yet.</p> : dashboard.jobs.map(job => (
             <Link key={job.id} to={job.href} className="job-card">
               <span className="job-icon">{job.icon}</span>
               <span>{job.label}</span>
@@ -324,7 +318,7 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Smart Shortcuts</h3>
         <div className="shortcut-list">
-          {dashboard.shortcuts.map(item => (
+          {dashboard.shortcuts.length === 0 ? <p className="dashboard-subtitle">No shortcuts yet. Frequent flows will appear here.</p> : dashboard.shortcuts.map(item => (
             <Link key={item.id} to={item.href} className="shortcut-link">{item.text}</Link>
           ))}
         </div>
@@ -333,7 +327,7 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Recent Activity</h3>
         <div className="activity-list">
-          {dashboard.activity.map(item => (
+          {dashboard.activity.length === 0 ? <p className="dashboard-subtitle">No recent activity yet. Add your first transaction.</p> : dashboard.activity.map(item => (
             <Link key={item.id} to={item.href} className="activity-link">• {item.text}</Link>
           ))}
         </div>
