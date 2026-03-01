@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import { verifyRegistrationApi } from '../services/api/authApi'
 import { completeOtpSession, registerStart, startPinReset, verifyPinReset } from '../services/auth'
@@ -8,9 +8,12 @@ import { getAuthFlowState, setAuthFlowOtpSession, setAuthFlowPinContext, updateA
 
 const MAX_ATTEMPTS = 3
 
+type OtpHintState = { message?: string } | null
+
 export default function Verify() {
   const [sp] = useSearchParams()
   const nav = useNavigate()
+  const location = useLocation()
   const flow = getAuthFlowState()
 
   const queryMode = sp.get('mode')
@@ -31,6 +34,9 @@ export default function Verify() {
   useEffect(() => {
     if (!phone) setError('Missing identity details. Please restart.')
     if (!flow.otpSession) setAuthFlowOtpSession({ purpose: mode, attemptsUsed, maxAttempts: MAX_ATTEMPTS, resendEnabled: false })
+
+    const navState = location.state as OtpHintState
+    if (navState?.message) setInfo(navState.message)
   }, [])
 
   async function handleVerify() {
@@ -53,7 +59,16 @@ export default function Verify() {
           return
         }
 
-        setAuthFlowPinContext({ flow: 'reset', identifier: { phone, email } })
+        setAuthFlowPinContext({
+          flow: 'reset',
+          identifier: { phone, email },
+          otpContext: {
+            userId: result.userId,
+            otpSessionId: result.otpSessionId,
+            verificationToken: result.verificationToken,
+            temporaryAuthToken: result.temporaryAuthToken
+          }
+        })
         const nextRoute = resolveNextRoute(result.next, '/set-pin')
         nav(nextRoute.startsWith('/set-pin') ? '/set-pin?mode=reset' : nextRoute, { replace: true })
         return
@@ -63,7 +78,16 @@ export default function Verify() {
       if (!result.ok || !result.user) throw new Error('Unable to verify OTP.')
 
       completeOtpSession({ id: result.user.id, phone: result.user.phone, name: flow.identity?.name, email: flow.identity?.email })
-      setAuthFlowPinContext({ flow: 'register', identifier: { phone: result.user.phone, email: flow.identity?.email } })
+      setAuthFlowPinContext({
+        flow: 'register',
+        identifier: { phone: result.user.phone, email: flow.identity?.email },
+        otpContext: {
+          userId: result.userId || result.user.id,
+          otpSessionId: result.otpSessionId,
+          verificationToken: result.verificationToken,
+          temporaryAuthToken: result.temporaryAuthToken
+        }
+      })
       nav(resolveNextRoute(result.next, '/set-pin'), { replace: true })
     } catch (e: any) {
       const bounded = Math.min(MAX_ATTEMPTS, attemptsUsed + 1)

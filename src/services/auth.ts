@@ -53,7 +53,15 @@ type LoginResult =
   | { ok: false; reason: 'invalid' | 'pin_not_set' | 'offline_unavailable' }
 
 type PinResetRequestResult = { ok: true; code?: string; next?: string } | { ok: false; reason: 'not_found' | 'throttled' | 'not_supported'; message?: string; code?: string }
-type PinResetVerifyResult = { ok: true; next?: string; attemptsRemaining?: number } | { ok: false; reason: 'expired' | 'invalid' | 'not_supported'; message?: string; code?: string; attemptsRemaining?: number }
+type PinResetVerifyResult = {
+  ok: true
+  next?: string
+  attemptsRemaining?: number
+  userId?: string
+  otpSessionId?: string
+  verificationToken?: string
+  temporaryAuthToken?: string
+} | { ok: false; reason: 'expired' | 'invalid' | 'not_supported'; message?: string; code?: string; attemptsRemaining?: number }
 type PinSetResult = { ok: true; next?: string } | { ok: false; reason?: 'not_supported'; message?: string }
 
 type OfflineCredential = {
@@ -381,7 +389,15 @@ export async function startPinReset(identifier: { phone?: string; email?: string
 export async function verifyPinReset(identifier: { phone?: string; email?: string }, code: string): Promise<PinResetVerifyResult> {
   try {
     const response = await verifyPinResetApi({ phone: identifier.phone, email: identifier.email, otp: code })
-    return { ok: true, next: response.next, attemptsRemaining: response.attemptsRemaining }
+    return {
+      ok: true,
+      next: response.next,
+      attemptsRemaining: response.attemptsRemaining,
+      userId: response.userId,
+      otpSessionId: response.otpSessionId,
+      verificationToken: response.verificationToken,
+      temporaryAuthToken: response.temporaryAuthToken
+    }
   } catch (e: any) {
     if (isApiRequestError(e)) {
       const payload = e.payload && typeof e.payload === 'object'
@@ -406,7 +422,14 @@ export async function setNewPin(identifier: { phone?: string; email?: string }, 
   }
 }
 
-export async function setPinByMode(input: { pin: string; mode: 'register' | 'reset' }): Promise<PinSetResult & { message?: string }> {
+export async function setPinByMode(input: {
+  pin: string
+  mode: 'register' | 'reset'
+  userId?: string
+  otpSessionId?: string
+  verificationToken?: string
+  temporaryAuthToken?: string
+}): Promise<PinSetResult & { message?: string }> {
   try {
     const response = await setPinWithModeApi(input)
     return { ok: true, next: response.next, message: response.message }
