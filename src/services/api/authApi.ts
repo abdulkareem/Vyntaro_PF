@@ -51,6 +51,7 @@ export function verifyRegistrationApi(input: { phone?: string; mobile?: string; 
       role?: string
     }
     next?: string
+    attemptsRemaining?: number
   }>('/api/auth/register/verify', {
     method: 'POST',
     body: {
@@ -62,11 +63,11 @@ export function verifyRegistrationApi(input: { phone?: string; mobile?: string; 
 }
 
 export function setPinApi(input: { phone: string; pin: string; userId?: string; email?: string }) {
-  return requestJson<{ ok: true }>('/api/auth/pin/set', { method: 'POST', body: input })
+  return requestJson<{ ok: true; next?: string }>('/api/auth/pin/set', { method: 'POST', body: input })
 }
 
 export function startPinResetApi(input: { phone?: string; email?: string }) {
-  return requestJson<{ ok: true; code?: string; channel?: 'phone' | 'email' }>('/api/auth/pin/reset/start', {
+  return requestJson<{ ok: true; code?: string; channel?: 'phone' | 'email'; next?: string }>('/api/auth/pin/reset/start', {
     method: 'POST',
     body: {
       ...input,
@@ -76,7 +77,7 @@ export function startPinResetApi(input: { phone?: string; email?: string }) {
 }
 
 export function verifyPinResetApi(input: { phone?: string; email?: string; otp: string }) {
-  return requestJson<{ ok: true }>('/api/auth/pin/reset/verify', {
+  return requestJson<{ ok: true; next?: string; attemptsRemaining?: number }>('/api/auth/pin/reset/verify', {
     method: 'POST',
     body: {
       ...input,
@@ -86,7 +87,7 @@ export function verifyPinResetApi(input: { phone?: string; email?: string; otp: 
 }
 
 export function completePinResetApi(input: { phone?: string; email?: string; pin: string }) {
-  return requestJson<{ ok: true }>('/api/auth/pin/reset/complete', {
+  return requestJson<{ ok: true; next?: string }>('/api/auth/pin/reset/complete', {
     method: 'POST',
     body: {
       ...input,
@@ -99,7 +100,7 @@ export function updatePinApi(input: { phone: string; oldPin: string; newPin: str
   return requestJson<{ ok: true }>('/api/auth/pin/change', { method: 'POST', body: input })
 }
 
-export function loginApi(input: { phone: string; pin: string }) {
+export function loginApi(input: { phone?: string; email?: string; identifier?: string; pin: string }) {
   return requestJson<{
     ok: true
     user: {
@@ -137,7 +138,7 @@ export function refreshAuthApi(input: { refreshToken: string }) {
 }
 
 export function checkIdentityApi(input: { phone: string; email?: string }) {
-  return requestJson<{ exists: boolean; phoneExists?: boolean; emailExists?: boolean }>('/api/auth/identity/check', {
+  return requestJson<{ exists: boolean; phoneExists?: boolean; emailExists?: boolean; next?: string }>('/api/auth/identity/check', {
     method: 'POST',
     body: input
   })

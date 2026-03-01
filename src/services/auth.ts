@@ -48,12 +48,12 @@ type PendingRegistration = {
 }
 
 type LoginResult =
-  | { ok: true; user: AppUser; mode: AuthStatus }
+  | { ok: true; user: AppUser; mode: AuthStatus; next?: string }
   | { ok: false; reason: 'invalid' | 'pin_not_set' | 'offline_unavailable' }
 
-type PinResetRequestResult = { ok: true; code?: string } | { ok: false; reason: 'not_found' | 'throttled' | 'not_supported'; message?: string }
-type PinResetVerifyResult = { ok: true } | { ok: false; reason: 'expired' | 'invalid' | 'not_supported'; message?: string }
-type PinSetResult = { ok: true } | { ok: false; reason?: 'not_supported'; message?: string }
+type PinResetRequestResult = { ok: true; code?: string; next?: string } | { ok: false; reason: 'not_found' | 'throttled' | 'not_supported'; message?: string; code?: string }
+type PinResetVerifyResult = { ok: true; next?: string; attemptsRemaining?: number } | { ok: false; reason: 'expired' | 'invalid' | 'not_supported'; message?: string; code?: string; attemptsRemaining?: number }
+type PinSetResult = { ok: true; next?: string } | { ok: false; reason?: 'not_supported'; message?: string }
 
 type OfflineCredential = {
   mobile: string
@@ -226,7 +226,7 @@ export function resendRegistrationOTP(_mobile: string) {
 
 export async function setPin(mobile: string, pin: string): Promise<PinSetResult> {
   const pending = getPendingRegistration()
-  await setPinApi({
+  const setPinResponse = await setPinApi({
     phone: mobile,
     pin,
     userId: pending?.userId,
@@ -245,12 +245,19 @@ export async function setPin(mobile: string, pin: string): Promise<PinSetResult>
   })
   await createOfflineCredential(mobile, pin, user)
   clearPendingRegistration()
-  return { ok: true as const }
+  return { ok: true as const, next: setPinResponse.next }
 }
 
-export async function loginWithPin(mobile: string, pin: string): Promise<LoginResult> {
+export async function loginWithPin(identifier: string, pin: string): Promise<LoginResult> {
+  const normalized = identifier.trim().toLowerCase()
+  const isEmail = normalized.includes('@')
   try {
-    const res = await loginApi({ phone: mobile, pin })
+    const res = await loginApi({
+      pin,
+      phone: isEmail ? undefined : normalized,
+      email: isEmail ? normalized : undefined,
+      identifier: normalized
+    })
     const pending = getPendingRegistration()
     const user = mapUser(res.user, pending?.name)
     if (!user.pinSet) return { ok: false, reason: 'pin_not_set' }
@@ -264,11 +271,11 @@ export async function loginWithPin(mobile: string, pin: string): Promise<LoginRe
       authStatus: 'online_verified',
       lastValidatedAt: now
     })
-    await createOfflineCredential(mobile, pin, user)
-    return { ok: true as const, user, mode: 'online_verified' }
+    await createOfflineCredential(user.mobile, pin, user)
+    return { ok: true as const, user, mode: 'online_verified', next: res.next }
   } catch (error) {
     if (!navigator.onLine || isNetworkError(error)) {
-      const offlineUser = await canLoginOffline(mobile, pin)
+      const offlineUser = await canLoginOffline(normalized, pin)
       if (offlineUser) {
         setSession({
           user: offlineUser,
@@ -333,19 +340,20 @@ export async function startPinReset(identifier: { phone?: string; email?: string
   const normalizedEmail = identifier.email?.trim().toLowerCase()
   try {
     const result = await startPinResetApi({ phone: identifier.phone, email: normalizedEmail })
-    return { ok: true, code: result.code }
+    return { ok: true, code: result.code, next: result.next }
   } catch (e: any) {
     if (isApiRequestError(e)) {
+      const payload = e.payload && typeof e.payload === 'object' ? e.payload as { code?: string } : undefined
       if (e.status === 404) {
-        return { ok: false, reason: 'not_found', message: e.message || 'Account not found for provided details.' }
+        return { ok: false, reason: 'not_found', message: e.message || 'Account not found for provided details.', code: payload?.code }
       }
 
       if (e.status === 400) {
-        return { ok: false, reason: 'not_supported', message: e.message || 'Please check your details and try again.' }
+        return { ok: false, reason: 'not_supported', message: e.message || 'Please check your details and try again.', code: payload?.code }
       }
 
       if (e.status === 429) {
-        return { ok: false, reason: 'throttled', message: e.message || 'Too many attempts. Please try again shortly.' }
+        return { ok: false, reason: 'throttled', message: e.message || 'Too many attempts. Please try again shortly.', code: payload?.code }
       }
     }
 
@@ -371,17 +379,27 @@ export async function startPinReset(identifier: { phone?: string; email?: string
 
 export async function verifyPinReset(identifier: { phone?: string; email?: string }, code: string): Promise<PinResetVerifyResult> {
   try {
-    await verifyPinResetApi({ phone: identifier.phone, email: identifier.email, otp: code })
-    return { ok: true }
+    const response = await verifyPinResetApi({ phone: identifier.phone, email: identifier.email, otp: code })
+    return { ok: true, next: response.next, attemptsRemaining: response.attemptsRemaining }
   } catch (e: any) {
+    if (isApiRequestError(e)) {
+      const payload = e.payload && typeof e.payload === 'object'
+        ? e.payload as { code?: string; attemptsRemaining?: number }
+        : undefined
+      const codeFromApi = payload?.code
+      if (codeFromApi === 'OTP_EXPIRED') {
+        return { ok: false, reason: 'expired', message: e?.message || 'OTP expired.', code: codeFromApi, attemptsRemaining: payload?.attemptsRemaining }
+      }
+      return { ok: false, reason: 'invalid', message: e?.message || 'Invalid OTP', code: codeFromApi, attemptsRemaining: payload?.attemptsRemaining }
+    }
     return { ok: false, reason: 'invalid', message: e?.message || 'Invalid OTP' }
   }
 }
 
 export async function setNewPin(identifier: { phone?: string; email?: string }, pin: string): Promise<PinSetResult> {
   try {
-    await completePinResetApi({ phone: identifier.phone, email: identifier.email, pin })
-    return { ok: true }
+    const response = await completePinResetApi({ phone: identifier.phone, email: identifier.email, pin })
+    return { ok: true, next: response.next }
   } catch (e: any) {
     return { ok: false, reason: 'not_supported', message: e?.message || 'Failed to reset PIN' }
   }

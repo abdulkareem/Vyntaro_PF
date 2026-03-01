@@ -1,90 +1,102 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
 import { verifyRegistrationApi } from '../services/api/authApi'
-import { completeOtpSession } from '../services/auth'
+import { completeOtpSession, registerStart, startPinReset, verifyPinReset } from '../services/auth'
+import { resolveNextRoute } from '../services/authFlowNavigator'
+import { getAuthFlowState, setAuthFlowOtpSession, setAuthFlowPinContext, updateAuthFlowOtpSession } from '../services/authFlowState'
 
-type VerifiedIdentity = {
-  phone: string
-}
+const MAX_ATTEMPTS = 3
 
 export default function Verify() {
   const [sp] = useSearchParams()
   const nav = useNavigate()
+  const flow = getAuthFlowState()
 
-  const phone = sp.get('phone') || sp.get('mobile') || ''
-  const mode = sp.get('mode') ?? 'register'
+  const mode = (sp.get('mode') as 'register' | 'reset' | null) ?? flow.otpSession?.purpose ?? 'register'
+  const phone = sp.get('phone') || sp.get('mobile') || flow.identity?.fullPhone || flow.pinContext?.identifier.phone || ''
+  const email = flow.identity?.email || flow.pinContext?.identifier.email
 
   const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
+  const [attemptsUsed, setAttemptsUsed] = useState(flow.otpSession?.attemptsUsed ?? 0)
+
+  const locked = attemptsUsed >= MAX_ATTEMPTS
+  const attemptsRemaining = useMemo(() => Math.max(0, MAX_ATTEMPTS - attemptsUsed), [attemptsUsed])
 
   useEffect(() => {
-    if (!phone) {
-      setError('Missing phone number')
-    }
-  }, [phone])
+    if (!phone) setError('Missing identity details. Please restart.')
+    if (!flow.otpSession) setAuthFlowOtpSession({ purpose: mode, attemptsUsed, maxAttempts: MAX_ATTEMPTS, resendEnabled: false })
+  }, [])
 
-  async function verifyOtp() {
-    if (!otp || !phone) return
+  async function handleVerify() {
+    if (locked) return
+    if (!otp) return setError('Please enter the OTP first.')
 
     try {
       setLoading(true)
       setError('')
       setInfo('')
 
-      const result = await verifyRegistrationApi({
-        phone,
-        otp
-      })
-
-      if (!result.ok || !result.user) {
-        throw new Error('OTP verification failed')
-      }
-
-      const verified: VerifiedIdentity = {
-        phone: result.user.phone
-      }
-
-      localStorage.setItem('verified_identity', JSON.stringify(verified))
-
-      localStorage.setItem('auth_user_mobile', result.user.phone)
-      localStorage.setItem('auth_user_id', result.user.id)
-      localStorage.setItem('auth_user_email', result.user.email || '')
-
-      if (mode === 'register') {
-        // complete local session for UI continuity
-        const pendingRegistration = localStorage.getItem('pending_registration')
-        let pendingName: string | undefined
-        let pendingEmail: string | undefined
-
-        if (pendingRegistration) {
-          try {
-            const parsed = JSON.parse(pendingRegistration)
-            pendingName = parsed?.name
-            pendingEmail = parsed?.email
-          } catch {
-            // ignore
-          }
+      if (mode === 'reset') {
+        const result = await verifyPinReset({ phone, email }, otp)
+        if (!result.ok) {
+          const nextUsed = result.attemptsRemaining != null ? MAX_ATTEMPTS - result.attemptsRemaining : attemptsUsed + 1
+          const bounded = Math.min(MAX_ATTEMPTS, Math.max(0, nextUsed))
+          setAttemptsUsed(bounded)
+          updateAuthFlowOtpSession({ attemptsUsed: bounded, resendEnabled: bounded >= MAX_ATTEMPTS })
+          setError(result.reason === 'expired' ? 'OTP expired. Request a new OTP to continue.' : (result.message || 'Invalid OTP.'))
+          return
         }
 
-        completeOtpSession({
-          id: result.user.id,
-          phone: verified.phone,
-          name: pendingName,
-          email: pendingEmail
-        })
-
-        // backend says where to go next
-        nav(result.next || '/set-pin', { replace: true })
+        setAuthFlowPinContext({ flow: 'reset', identifier: { phone, email } })
+        nav(resolveNextRoute(result.next, '/set-pin'), { replace: true })
         return
       }
 
-      // fallback
-      nav('/dashboard', { replace: true })
+      const result = await verifyRegistrationApi({ phone, otp })
+      if (!result.ok || !result.user) throw new Error('Unable to verify OTP.')
+
+      completeOtpSession({ id: result.user.id, phone: result.user.phone, name: flow.identity?.name, email: flow.identity?.email })
+      setAuthFlowPinContext({ flow: 'register', identifier: { phone: result.user.phone, email: flow.identity?.email } })
+      nav(resolveNextRoute(result.next, '/set-pin'), { replace: true })
     } catch (e: any) {
-      setError(e?.message || 'Invalid OTP')
+      const bounded = Math.min(MAX_ATTEMPTS, attemptsUsed + 1)
+      setAttemptsUsed(bounded)
+      updateAuthFlowOtpSession({ attemptsUsed: bounded, resendEnabled: bounded >= MAX_ATTEMPTS })
+      setError(e?.message || 'OTP verification failed.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleResend() {
+    setError('')
+    setInfo('')
+    try {
+      setLoading(true)
+      if (mode === 'reset') {
+        const response = await startPinReset({ phone, email })
+        if (!response.ok) return setError(response.message || 'Unable to resend OTP right now.')
+      } else {
+        if (!flow.identity?.fullPhone || !flow.identity?.name) return setError('Missing registration details. Please register again.')
+        await registerStart({
+          mobile: flow.identity.fullPhone,
+          email: flow.identity.email,
+          name: flow.identity.name,
+          countryCode: flow.identity.countryCode,
+          location: null
+        })
+      }
+
+      setAttemptsUsed(0)
+      setOtp('')
+      setAuthFlowOtpSession({ purpose: mode, attemptsUsed: 0, maxAttempts: MAX_ATTEMPTS, resendEnabled: false })
+      setInfo('A new OTP has been sent. Please use the latest code.')
+    } catch (e: any) {
+      setError(e?.message || 'Failed to resend OTP.')
     } finally {
       setLoading(false)
     }
@@ -94,30 +106,16 @@ export default function Verify() {
     <main className="neo-auth-screen">
       <section className="neo-auth-card">
         <VyntaroLogoAnimated size={72} />
+        <h2>OTP Verification</h2>
+        <p className="neo-auth-sub">Attempts left: {attemptsRemaining} / {MAX_ATTEMPTS}.</p>
 
-        <h2>Enter OTP</h2>
-        <p className="neo-auth-sub">
-          Enter the 6-digit code sent to your registered mobile number (and email if provided).
-        </p>
+        <input className="neo-control" placeholder="6-digit OTP" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} disabled={locked || loading} />
+        <button className="neo-btn neo-btn-primary" onClick={handleVerify} disabled={loading || locked}>{loading ? 'Verifying…' : 'Verify & Continue'}</button>
 
-        <input
-          className="neo-control"
-          placeholder="6-digit OTP"
-          maxLength={6}
-          value={otp}
-          onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-        />
+        {(locked || error.toLowerCase().includes('expired')) && <button type="button" className="neo-btn neo-btn-link" onClick={handleResend} disabled={loading}>Resend OTP</button>}
 
         {error && <p className="error">{error}</p>}
         {info && <p className="neo-auth-sub">{info}</p>}
-
-        <button
-          className="neo-btn neo-btn-primary"
-          onClick={verifyOtp}
-          disabled={loading}
-        >
-          {loading ? 'Verifying…' : 'Verify & Continue'}
-        </button>
       </section>
     </main>
   )

@@ -1,107 +1,57 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { loginWithPin } from '../services/auth'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
-import { countryDialCodes } from '../lib/countryDialCodes'
-
-const ATTEMPT_KEY = 'pin_login_attempts'
-const MAX_ATTEMPTS = 5
-
-function getRemainingAttempts() {
-  const value = Number(localStorage.getItem(ATTEMPT_KEY) ?? MAX_ATTEMPTS)
-  return Number.isNaN(value) ? MAX_ATTEMPTS : Math.max(0, value)
-}
+import PinInput from '../components/auth/PinInput'
+import { clearAuthFlowState } from '../services/authFlowState'
+import { resolveNextRoute } from '../services/authFlowNavigator'
 
 export default function Login() {
   const nav = useNavigate()
-  const [countryCode, setCountryCode] = useState('+91')
-  const [phone, setPhone] = useState('')
-  const [pin, setPin] = useState(['', '', '', ''])
+  const [identifier, setIdentifier] = useState('')
+  const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [remainingAttempts, setRemainingAttempts] = useState(MAX_ATTEMPTS)
   const [authMode, setAuthMode] = useState<'online_verified' | 'offline_authenticated' | null>(null)
-  const pinRefs = useRef<Array<HTMLInputElement | null>>([])
 
-  const pinValue = useMemo(() => pin.join(''), [pin])
+  const isEmail = useMemo(() => identifier.includes('@'), [identifier])
 
   useEffect(() => {
-    setRemainingAttempts(getRemainingAttempts())
-
-    const savedPhone = localStorage.getItem('auth_phone')
-    if (!savedPhone) return
-    const dialCode = countryDialCodes.find(c => savedPhone.startsWith(c.dial))
-    if (dialCode) {
-      setCountryCode(dialCode.dial)
-      setPhone(savedPhone.replace(dialCode.dial, ''))
-    }
+    clearAuthFlowState()
   }, [])
 
-
-  const handlePinChange = (index: number, value: string) => {
-    if (loading) return
-    const next = value.replace(/\D/g, '').slice(-1)
-    setPin(prev => {
-      const copy = [...prev]
-      copy[index] = next
-      return copy
-    })
-    if (next && index < 3) pinRefs.current[index + 1]?.focus()
-  }
-
-  const handlePinKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Backspace' && !pin[index] && index > 0) {
-      pinRefs.current[index - 1]?.focus()
-    }
-  }
-
-  const handleDelete = () => {
-    if (loading) return
-    setPin(['', '', '', ''])
-    setError('')
-    pinRefs.current[0]?.focus()
-  }
-
   const handleSubmit = async () => {
-    if (loading) return
+    if (!identifier.trim()) return setError('Enter your registered phone number or email.')
+    if (pin.length !== 4) return setError('Enter the full 4-digit PIN.')
+
     setError('')
-
-    if (!phone) return setError('Enter your mobile number to continue.')
-    if (pinValue.length !== 4) return setError('Enter the full 4-digit PIN.')
-
     setLoading(true)
-    const fullPhone = `${countryCode}${phone}`
 
     try {
-      const res = await loginWithPin(fullPhone, pinValue)
+      const cleaned = identifier.trim()
+      const res = await loginWithPin(cleaned, pin)
       if (res.ok) {
         setAuthMode(res.mode)
-        localStorage.setItem('auth_phone', fullPhone)
+        localStorage.setItem('auth_phone', cleaned)
         localStorage.setItem('auth_user_mobile', res.user.mobile)
         localStorage.setItem('auth_user_id', res.user.id)
         localStorage.setItem('auth_user_email', res.user.email || '')
-        localStorage.setItem(ATTEMPT_KEY, String(MAX_ATTEMPTS))
-        nav('/dashboard', { replace: true })
+        nav(resolveNextRoute(res.next, '/dashboard'), { replace: true })
         return
       }
 
       if (res.reason === 'pin_not_set') {
-        setError('PIN setup is required before login. Please complete PIN setup first.')
-        nav(`/set-pin?mobile=${encodeURIComponent(fullPhone)}`)
+        setError('PIN setup is required. Please complete setup first.')
+        nav(`/set-pin?mobile=${encodeURIComponent(cleaned)}`)
         return
       }
 
       if (res.reason === 'offline_unavailable') {
-        setError('Offline login is only available after one successful online login on this device.')
+        setError('Offline login is unavailable for this account on this device. Reconnect and try again.')
         return
       }
 
-      const nextAttempts = Math.max(0, getRemainingAttempts() - 1)
-      localStorage.setItem(ATTEMPT_KEY, String(nextAttempts))
-      setRemainingAttempts(nextAttempts)
-      setError('Incorrect PIN. Try again or reset your PIN via OTP.')
-      setPin(['', '', '', ''])
-      pinRefs.current[0]?.focus()
+      setError('Invalid PIN. Please try again or reset your PIN.')
     } catch {
       setError('Unable to verify PIN. Please try again.')
     } finally {
@@ -109,85 +59,28 @@ export default function Login() {
     }
   }
 
-  const resetLink = `/forgot-pin?mobile=${encodeURIComponent(`${countryCode}${phone}`)}`
-
   return (
     <main className="neo-auth-screen">
       <section className="neo-auth-card">
         <VyntaroLogoAnimated size={84} />
         <h2>Secure Login</h2>
-        <p className="neo-auth-sub">
-          Enter your registered number and 4-digit login PIN.
-          {!navigator.onLine ? ' You are offline. Same-device login is available if you logged in online before.' : ''}
-        </p>
+        <p className="neo-auth-sub">Enter phone/email and your 4-digit PIN.</p>
 
-        <div className="neo-phone-wrap">
-          <select className="neo-control" value={countryCode} onChange={e => setCountryCode(e.target.value)}>
-            {countryDialCodes.map(country => (
-              <option key={`${country.code}-${country.dial}`} value={country.dial}>
-                {country.name} ({country.dial})
-              </option>
-            ))}
-          </select>
-          <input
-            placeholder="Mobile number"
-            value={phone}
-            onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 15))}
-            onKeyDown={e => {
-              if (e.key === 'Enter') pinRefs.current[0]?.focus()
-            }}
-          />
-        </div>
-
-        <div className="neo-pin-row">
-          <div className="neo-pin-inputs">
-            {pin.map((digit, index) => (
-              <input
-                key={index}
-                ref={el => {
-                  pinRefs.current[index] = el
-                }}
-                value={digit}
-                disabled={loading}
-                inputMode="numeric"
-                maxLength={1}
-                onChange={e => handlePinChange(index, e.target.value)}
-                onKeyDown={e => {
-                  handlePinKeyDown(index, e)
-                  if (e.key === 'Enter') void handleSubmit()
-                }}
-                className="neo-pin-input"
-              />
-            ))}
-          </div>
-          <button className="neo-pin-back" onClick={handleDelete} disabled={loading} aria-label="Clear PIN">←</button>
-        </div>
+        <input className="neo-control" placeholder="Phone or email" value={identifier} onChange={e => setIdentifier(e.target.value.trimStart())} />
+        <PinInput value={pin} onChange={setPin} disabled={loading} />
 
         {error && <p className="error">{error}</p>}
 
-        <div className="neo-pin-actions">
-          <button className="neo-btn neo-btn-primary" onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Verifying...' : 'Submit'}
-          </button>
-        </div>
-
-        <button className="neo-btn neo-btn-link" onClick={() => nav(resetLink)}>
-          Reset PIN via OTP
+        <button className="neo-btn neo-btn-primary" onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Verifying...' : 'Login'}
         </button>
 
-        {authMode === 'offline_authenticated' && (
-          <p className="neo-auth-sub">Logged in using offline device trust. Sync will revalidate when internet returns.</p>
-        )}
-
-        {remainingAttempts < MAX_ATTEMPTS && (
-          <p className="neo-auth-sub">
-            {remainingAttempts} attempt{remainingAttempts !== 1 ? 's' : ''} remaining before extra verification.
-          </p>
-        )}
-
-        <button className="neo-btn neo-btn-ghost" onClick={() => nav('/register')}>
-          New user? Register
+        <button className="neo-btn neo-btn-link" onClick={() => nav(`/forgot-pin?${isEmail ? `email=${encodeURIComponent(identifier.trim())}` : `phone=${encodeURIComponent(identifier.trim())}`}`)}>
+          Reset PIN
         </button>
+
+        {authMode === 'offline_authenticated' && <p className="neo-auth-sub">Logged in using offline trust for this device.</p>}
+        <button className="neo-btn neo-btn-ghost" onClick={() => nav('/register')}>New user? Register</button>
       </section>
     </main>
   )
