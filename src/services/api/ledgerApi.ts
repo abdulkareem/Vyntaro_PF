@@ -1,4 +1,4 @@
-import { requestJson } from './httpClient'
+import { ApiRequestError, requestJson, requestJsonWithPathFallback } from './httpClient'
 
 export type FinanceType = 'expense' | 'income' | 'bill' | 'ledger'
 
@@ -58,7 +58,10 @@ function resolveEntries(payload: ApiEntriesPayload | LedgerEntry[]): LedgerEntry
 }
 
 export async function fetchLedgerCategories(type = 'expense'): Promise<LedgerCategory[]> {
-  const payload = await requestJson<ApiCategoryPayload | LedgerCategory[]>(`/api/ledger/categories?type=${encodeURIComponent(type)}`)
+  const payload = await requestJsonWithPathFallback<ApiCategoryPayload | LedgerCategory[]>([
+    `/api/ledger/categories?type=${encodeURIComponent(type)}`,
+    `/ledger/categories?type=${encodeURIComponent(type)}`
+  ])
   return resolveCategories(payload)
 }
 
@@ -67,7 +70,7 @@ export async function createLedgerCategory(input: {
   type?: FinanceType
   showOnDashboard?: boolean
 }): Promise<LedgerCategory> {
-  const payload = await requestJson<LedgerCategory | { category: LedgerCategory }>('/api/ledger/categories', {
+  const payload = await requestJsonWithPathFallback<LedgerCategory | { category: LedgerCategory }>(['/api/ledger/categories', '/ledger/categories'], {
     method: 'POST',
     body: input
   })
@@ -81,13 +84,18 @@ export async function createLedgerEntry(input: LedgerEntryInput) {
     throw new Error('Please select or create a category first.')
   }
 
-  return requestJson<{ ok: boolean; id?: string; entryId?: string }>('/api/ledger/entries', {
+  return requestJsonWithPathFallback<{ ok: boolean; id?: string; entryId?: string }>(['/api/ledger/entries', '/ledger/entries'], {
     method: 'POST',
     body: input
   })
 }
 
 export async function fetchLedgerEntries() {
-  const payload = await requestJson<ApiEntriesPayload | LedgerEntry[]>('/api/ledger/entries')
-  return resolveEntries(payload)
+  try {
+    const payload = await requestJsonWithPathFallback<ApiEntriesPayload | LedgerEntry[]>(['/api/ledger/entries', '/ledger/entries'])
+    return resolveEntries(payload)
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.status === 404) return []
+    throw error
+  }
 }

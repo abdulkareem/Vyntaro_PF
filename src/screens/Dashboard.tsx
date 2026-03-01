@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import BalanceCard from '../components/dashboard/BalanceCard'
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardTabs from '../components/dashboard/DashboardTabs'
+import TransactionList from '../components/dashboard/TransactionList'
 import { DashboardData, ExpenseBreakdownItem, SmartAlert } from '../services/api/dashboardApi'
 import { useDashboardData } from '../hooks/useDashboardData'
 
@@ -37,6 +38,57 @@ function largestBreakdownAmount(items: ExpenseBreakdownItem[]) {
   return items.reduce((max, item) => Math.max(max, item.amount), 0)
 }
 
+function buildZeroStateDashboard(): DashboardData {
+  return {
+    userName: 'User',
+    profilePhoto: '',
+    monthLabel: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    balance: 0,
+    income: 0,
+    expense: 0,
+    metricCards: [],
+    todaySummary: {
+      dateLabel: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      income: 0,
+      expense: 0,
+      cardTotals: []
+    },
+    budgetSummary: {
+      monthly: 0,
+      yearly: 0
+    },
+    jobs: [],
+    shortcuts: [],
+    activity: [],
+    bills: [],
+    transactions: [],
+    budgets: [],
+    analytics: [],
+    insights: {
+      financialHealth: { score: 0, label: 'Average' },
+      netWorth: { netWorth: 0, savingsThisMonth: 0 },
+      expenseBreakdown: [],
+      alerts: [],
+      prediction: { projectedBalance: 0 },
+      lendingSummary: {
+        totalLent: 0,
+        totalLoan: 0,
+        breakdown: [],
+        agingBuckets: [
+          { bucket: '0-30', count: 0, amount: 0 },
+          { bucket: '31-60', count: 0, amount: 0 },
+          { bucket: '61-90', count: 0, amount: 0 },
+          { bucket: '90+', count: 0, amount: 0 }
+        ]
+      }
+    },
+    ledgerCategoriesState: {
+      message: null,
+      retryable: false
+    }
+  }
+}
+
 export default function Dashboard() {
   const { data, loading, error, errorCode, refresh, retryable, isRefreshing } = useDashboardData()
   const [dateOffset, setDateOffset] = useState(1)
@@ -64,10 +116,16 @@ export default function Dashboard() {
     )
   }
 
-  if (error) {
-    return (
-      <main className="dashboard-page">
-        <DashboardTabs />
+  const dashboard = data ?? buildZeroStateDashboard()
+
+  const today = dashboard.todaySummary
+  const dateLabel = dateOffsets[dateOffset] || today.dateLabel
+  const maxExpenseCategory = largestBreakdownAmount(dashboard.insights.expenseBreakdown)
+
+  return (
+    <main className="dashboard-page">
+      <DashboardTabs />
+      {error ? (
         <section className="dashboard-card fade-in-up">
           <p className="error">{error}</p>
           {errorCode === 403 ? <p className="dashboard-subtitle">Contact your administrator if this seems unexpected.</p> : null}
@@ -75,36 +133,24 @@ export default function Dashboard() {
             <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry dashboard load</button>
           ) : null}
         </section>
-      </main>
-    )
-  }
-
-  if (!data) return <main className="dashboard-page"><p className="dashboard-subtitle">No dashboard data available yet.</p></main>
-
-  const today = data.todaySummary
-  const dateLabel = dateOffsets[dateOffset] || today.dateLabel
-  const maxExpenseCategory = largestBreakdownAmount(data.insights.expenseBreakdown)
-
-  return (
-    <main className="dashboard-page">
-      <DashboardTabs />
+      ) : null}
       {isRefreshing ? <p className="dashboard-subtitle">Refreshing dashboard data…</p> : null}
-      <DashboardHeader userName={data.userName} profilePhoto={data.profilePhoto} />
+      <DashboardHeader userName={dashboard.userName} profilePhoto={dashboard.profilePhoto} />
       <BalanceCard
-        monthLabel={data.monthLabel}
-        balance={data.balance}
-        income={data.income}
-        expense={data.expense}
-        metricCards={data.metricCards}
+        monthLabel={dashboard.monthLabel}
+        balance={dashboard.balance}
+        income={dashboard.income}
+        expense={dashboard.expense}
+        metricCards={dashboard.metricCards}
       />
 
       <section className="dashboard-card fade-in-up">
         <div className="financial-health-head">
           <h3 className="card-heading">Financial Health Score</h3>
-          <span className={`health-badge ${scoreTone(data.insights.financialHealth.label)}`}>{data.insights.financialHealth.label}</span>
+          <span className={`health-badge ${scoreTone(dashboard.insights.financialHealth.label)}`}>{dashboard.insights.financialHealth.label}</span>
         </div>
         <div className="financial-health-content">
-          <strong className="health-score">{data.insights.financialHealth.score}/100</strong>
+          <strong className="health-score">{dashboard.insights.financialHealth.score}/100</strong>
           <p className="dashboard-subtitle">Composed from expense ratio, savings rate, debt/lending exposure, and budget utilization.</p>
         </div>
       </section>
@@ -112,26 +158,26 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Net Worth & Savings</h3>
         <div className="today-grid budget-grid">
-          <article className="today-item budget"><span>Net Worth</span><strong>{formatCurrency(data.insights.netWorth.netWorth, currencyCode)}</strong></article>
-          <article className="today-item budget"><span>Savings (This Month)</span><strong>{formatCurrency(data.insights.netWorth.savingsThisMonth, currencyCode)}</strong></article>
+          <article className="today-item budget"><span>Net Worth</span><strong>{formatCurrency(dashboard.insights.netWorth.netWorth, currencyCode)}</strong></article>
+          <article className="today-item budget"><span>Savings (This Month)</span><strong>{formatCurrency(dashboard.insights.netWorth.savingsThisMonth, currencyCode)}</strong></article>
         </div>
       </section>
 
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Expense Breakdown</h3>
-        {data.ledgerCategoriesState.message ? (
+        {dashboard.ledgerCategoriesState.message ? (
           <div>
-            <p className="dashboard-subtitle">{data.ledgerCategoriesState.message}</p>
-            {data.ledgerCategoriesState.retryable ? (
+            <p className="dashboard-subtitle">{dashboard.ledgerCategoriesState.message}</p>
+            {dashboard.ledgerCategoriesState.retryable ? (
               <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry categories</button>
             ) : null}
           </div>
         ) : null}
-        {data.insights.expenseBreakdown.length === 0 ? (
+        {dashboard.insights.expenseBreakdown.length === 0 ? (
           <p className="dashboard-subtitle">No categories yet.</p>
         ) : (
           <div className="expense-breakdown-list">
-            {data.insights.expenseBreakdown.map(item => (
+            {dashboard.insights.expenseBreakdown.map(item => (
               <article key={item.category} className="expense-breakdown-row">
                 <div className="expense-breakdown-head">
                   <span>{item.category}</span>
@@ -151,11 +197,11 @@ export default function Dashboard() {
 
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Smart Alerts</h3>
-        {data.insights.alerts.length === 0 ? (
+        {dashboard.insights.alerts.length === 0 ? (
           <p className="dashboard-subtitle">No alerts right now. Keep up the good momentum.</p>
         ) : (
           <div className="alerts-list">
-            {data.insights.alerts.slice(0, 3).map((alert, index) => (
+            {dashboard.insights.alerts.slice(0, 3).map((alert, index) => (
               <article key={`${alert.type}-${index}`} className={`alert-item ${alertTone(alert.type)}`}>
                 <strong>{alert.type.toUpperCase()}</strong>
                 <p>{alert.message}</p>
@@ -168,7 +214,7 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Predictive Monthly Balance</h3>
         <p className="dashboard-subtitle">At current pace, your projected end-of-month balance is:</p>
-        <p className="prediction-value">{formatCurrency(data.insights.prediction.projectedBalance, currencyCode)}</p>
+        <p className="prediction-value">{formatCurrency(dashboard.insights.prediction.projectedBalance, currencyCode)}</p>
       </section>
 
       <section className="dashboard-card fade-in-up">
@@ -179,15 +225,15 @@ export default function Dashboard() {
           </summary>
 
           <div className="today-grid budget-grid lending-totals">
-            <article className="today-item lent"><span>Total Lent</span><strong>{formatCurrency(data.insights.lendingSummary.totalLent, currencyCode)}</strong></article>
-            <article className="today-item loan"><span>Total Loan</span><strong>{formatCurrency(data.insights.lendingSummary.totalLoan, currencyCode)}</strong></article>
+            <article className="today-item lent"><span>Total Lent</span><strong>{formatCurrency(dashboard.insights.lendingSummary.totalLent, currencyCode)}</strong></article>
+            <article className="today-item loan"><span>Total Loan</span><strong>{formatCurrency(dashboard.insights.lendingSummary.totalLoan, currencyCode)}</strong></article>
           </div>
 
           <div className="lending-breakdown">
-            {data.insights.lendingSummary.breakdown.length === 0 ? (
+            {dashboard.insights.lendingSummary.breakdown.length === 0 ? (
               <p className="dashboard-subtitle">No lending or loan records found.</p>
             ) : (
-              data.insights.lendingSummary.breakdown.map((item, index) => (
+              dashboard.insights.lendingSummary.breakdown.map((item, index) => (
                 <article key={`${item.person}-${index}`} className="lending-person-row">
                   <div>
                     <strong>{item.person}</strong>
@@ -203,7 +249,7 @@ export default function Dashboard() {
           </div>
 
           <div className="aging-buckets">
-            {data.insights.lendingSummary.agingBuckets.map(bucket => (
+            {dashboard.insights.lendingSummary.agingBuckets.map(bucket => (
               <article key={bucket.bucket} className="aging-bucket">
                 <strong>{bucket.bucket} Days</strong>
                 <span>{bucket.count} entries</span>
@@ -255,8 +301,8 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Budget Overview</h3>
         <div className="today-grid budget-grid">
-          <article className="today-item budget"><span>Monthly Budget</span><strong>{formatCurrency(data.budgetSummary.monthly, currencyCode)}</strong></article>
-          <article className="today-item budget"><span>Yearly Budget</span><strong>{formatCurrency(data.budgetSummary.yearly, currencyCode)}</strong></article>
+          <article className="today-item budget"><span>Monthly Budget</span><strong>{formatCurrency(dashboard.budgetSummary.monthly, currencyCode)}</strong></article>
+          <article className="today-item budget"><span>Yearly Budget</span><strong>{formatCurrency(dashboard.budgetSummary.yearly, currencyCode)}</strong></article>
         </div>
       </section>
 
@@ -266,7 +312,7 @@ export default function Dashboard() {
           <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Refresh</button>
         </div>
         <div className="job-grid">
-          {data.jobs.map(job => (
+          {dashboard.jobs.map(job => (
             <Link key={job.id} to={job.href} className="job-card">
               <span className="job-icon">{job.icon}</span>
               <span>{job.label}</span>
@@ -278,7 +324,7 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Smart Shortcuts</h3>
         <div className="shortcut-list">
-          {data.shortcuts.map(item => (
+          {dashboard.shortcuts.map(item => (
             <Link key={item.id} to={item.href} className="shortcut-link">{item.text}</Link>
           ))}
         </div>
@@ -287,7 +333,7 @@ export default function Dashboard() {
       <section className="dashboard-card fade-in-up">
         <h3 className="card-heading">Recent Activity</h3>
         <div className="activity-list">
-          {data.activity.map(item => (
+          {dashboard.activity.map(item => (
             <Link key={item.id} to={item.href} className="activity-link">• {item.text}</Link>
           ))}
         </div>
@@ -299,10 +345,10 @@ export default function Dashboard() {
           <Link to="/dashboard/transactions?view=all-bills" className="bills-all-link">All Bills →</Link>
         </div>
         <div className="bill-list">
-          {data.bills.length === 0 ? (
+          {dashboard.bills.length === 0 ? (
             <p className="dashboard-subtitle">No bill records yet.</p>
           ) : (
-            data.bills.map(bill => (
+            dashboard.bills.map(bill => (
               <Link key={bill.id} to={bill.href} className="bill-row">
                 <span>{bill.shop}</span>
                 <strong>{formatCurrency(bill.amount, currencyCode)}</strong>
@@ -311,6 +357,8 @@ export default function Dashboard() {
           )}
         </div>
       </section>
+
+      <TransactionList items={dashboard.transactions} />
     </main>
   )
 }
