@@ -1,16 +1,20 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import VyntaroLogoAnimated from '../components/brand/VyntaroLogoAnimated'
+import { countryDialCodes } from '../lib/countryDialCodes'
 import { setNewPin, startPinReset, verifyPinReset } from '../services/auth'
-
-type ResetMode = 'phone' | 'email'
 
 export default function ForgotPin() {
   const [sp] = useSearchParams()
   const nav = useNavigate()
-  const [mode, setMode] = useState<ResetMode>('phone')
-  const [identifier, setIdentifier] = useState(sp.get('mobile') ?? sp.get('phone') ?? '')
-  const [step, setStep] = useState<'request' | 'verify' | 'set'>('request')
+
+  const initialCountry = sp.get('country') ?? '+91'
+  const incomingMobile = sp.get('mobile') ?? sp.get('phone') ?? ''
+  const [countryCode, setCountryCode] = useState(initialCountry)
+  const [phone, setPhone] = useState(incomingMobile.startsWith(initialCountry) ? incomingMobile.replace(initialCountry, '') : incomingMobile)
+  const [email, setEmail] = useState(sp.get('email') ?? '')
+  const [step, setStep] = useState<'request' | 'verify' | 'set'>(sp.get('step') === 'verify' ? 'verify' : 'request')
+  const [channel, setChannel] = useState<'phone' | 'email'>((sp.get('channel') as 'phone' | 'email') || 'phone')
   const [code, setCode] = useState('')
   const [p1, setP1] = useState('')
   const [p2, setP2] = useState('')
@@ -19,33 +23,59 @@ export default function ForgotPin() {
   const [showRegisterLink, setShowRegisterLink] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const payload = useMemo(() => (
-    mode === 'phone'
-      ? { phone: identifier }
-      : { email: identifier.trim().toLowerCase() }
-  ), [identifier, mode])
+  const fullPhone = `${countryCode}${phone}`
 
-  const request = async () => {
-    if (!identifier.trim()) {
-      setError(`Enter your ${mode}.`)
-      return
+  const payload = useMemo(
+    () => ({
+      phone: channel === 'phone' ? fullPhone : undefined,
+      email: channel === 'email' ? email.trim().toLowerCase() : undefined
+    }),
+    [channel, email, fullPhone]
+  )
+
+  const validateContactInput = () => {
+    if (!phone || phone.length < 8) {
+      setError('Please enter a valid mobile number.')
+      return false
     }
 
-    setLoading(true)
+    if (email.trim()) {
+      const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+      if (!validEmail) {
+        setError('Please enter a valid email address.')
+        return false
+      }
+    }
+
+    if (channel === 'email' && !email.trim()) {
+      setError('Enter your registered email address.')
+      return false
+    }
+
+    return true
+  }
+
+  const request = async () => {
     setError(null)
+    setMessage(null)
     setShowRegisterLink(false)
+
+    if (!validateContactInput()) return
+
+    setLoading(true)
     const r = await startPinReset(payload)
     setLoading(false)
 
     if (r.ok) {
       if (import.meta.env.DEV && r.code) setMessage(`Dev OTP: ${r.code}`)
-      else setMessage(`OTP sent to your ${mode}`)
+      else setMessage(`OTP sent to your ${channel}.`)
       setStep('verify')
+      nav(`/forgot-pin?step=verify&channel=${channel}&country=${encodeURIComponent(countryCode)}&phone=${encodeURIComponent(phone)}&email=${encodeURIComponent(email.trim())}`, { replace: true })
       return
     }
 
     if (r.reason === 'not_found') {
-      setError(`This ${mode} is not registered.`)
+      setError(channel === 'phone' ? 'No user found for this mobile number.' : 'No user found for this email address.')
       setShowRegisterLink(true)
       return
     }
@@ -54,9 +84,13 @@ export default function ForgotPin() {
   }
 
   const verify = async () => {
+    if (!code || code.length < 4) {
+      setError('Enter the OTP sent to you.')
+      return
+    }
+
     setLoading(true)
     setError(null)
-    setShowRegisterLink(false)
     const r = await verifyPinReset(payload, code)
     setLoading(false)
 
@@ -77,7 +111,6 @@ export default function ForgotPin() {
 
     setLoading(true)
     setError(null)
-    setShowRegisterLink(false)
     const r = await setNewPin(payload, p1)
     setLoading(false)
 
@@ -90,31 +123,42 @@ export default function ForgotPin() {
       <section className="neo-auth-card">
         <VyntaroLogoAnimated size={76} />
         <h2>Reset PIN</h2>
-        <p className="neo-auth-sub">Reset your PIN using OTP verification with phone or email.</p>
+        <p className="neo-auth-sub">Use your registered mobile number or email to receive an OTP and set a new PIN.</p>
 
         {step === 'request' && (
           <>
-            <div className="neo-chip-row">
-              <button className={`neo-chip ${mode === 'phone' ? 'active' : ''}`} onClick={() => { setMode('phone'); setIdentifier('') }} type="button">Phone</button>
-              <button className={`neo-chip ${mode === 'email' ? 'active' : ''}`} onClick={() => { setMode('email'); setIdentifier('') }} type="button">Email</button>
+            <div className="neo-phone-wrap">
+              <select className="neo-control" value={countryCode} onChange={e => setCountryCode(e.target.value)}>
+                {countryDialCodes.map(country => (
+                  <option key={`${country.code}-${country.dial}`} value={country.dial}>
+                    {country.name} ({country.dial})
+                  </option>
+                ))}
+              </select>
+              <input
+                className="neo-control"
+                placeholder="Registered mobile number"
+                value={phone}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 15))}
+              />
             </div>
-            <input
-              className="neo-control"
-              placeholder={mode === 'phone' ? 'Registered phone' : 'Registered email'}
-              value={identifier}
-              onChange={e => setIdentifier(
-                mode === 'phone'
-                  ? e.target.value.replace(/[^\d+]/g, '').slice(0, 16)
-                  : e.target.value.trimStart()
-              )}
-            />
-            <button className="neo-btn neo-btn-primary" onClick={request} disabled={loading}>{loading ? 'Sending…' : 'Send OTP'}</button>
+
+            <input className="neo-control" placeholder="Registered email" value={email} onChange={e => setEmail(e.target.value.trimStart())} />
+
+            <div className="neo-chip-row">
+              <button type="button" className={`neo-chip ${channel === 'phone' ? 'active' : ''}`} onClick={() => setChannel('phone')}>Send OTP to phone</button>
+              <button type="button" className={`neo-chip ${channel === 'email' ? 'active' : ''}`} onClick={() => setChannel('email')}>Send OTP to email</button>
+            </div>
+
+            <button className="neo-btn neo-btn-primary" onClick={request} disabled={loading}>
+              {loading ? 'Sending…' : 'Continue to OTP Verification'}
+            </button>
           </>
         )}
 
         {step === 'verify' && (
           <>
-            <p className="neo-auth-sub">OTP sent to {identifier}</p>
+            <p className="neo-auth-sub">OTP sent via {channel === 'phone' ? fullPhone : email.trim()}.</p>
             <input className="neo-control" placeholder="Enter OTP" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
             <button className="neo-btn neo-btn-primary" onClick={verify} disabled={loading}>{loading ? 'Verifying…' : 'Verify OTP'}</button>
           </>
@@ -135,7 +179,6 @@ export default function ForgotPin() {
             New here? <Link to="/register">Register now</Link>
           </p>
         )}
-
       </section>
     </main>
   )

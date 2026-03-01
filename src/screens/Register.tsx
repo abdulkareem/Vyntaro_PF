@@ -17,6 +17,7 @@ export default function Register() {
   const [identityStatus, setIdentityStatus] = useState<'unknown' | 'exists' | 'new'>('unknown')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingIdentity, setCheckingIdentity] = useState(false)
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -24,17 +25,36 @@ export default function Register() {
 
   const fullPhone = useMemo(() => `${form.countryCode}${form.phone}`, [form.countryCode, form.phone])
 
-  useEffect(() => {
-    if (!form.phone || form.phone.length < 8) return
+  async function runIdentityCheck() {
+    if (!form.phone || form.phone.length < 8) {
+      setIdentityStatus('unknown')
+      return 'unknown' as const
+    }
 
-    const timer = setTimeout(async () => {
-      try {
-        const email = form.email.trim()
-        const res = await checkIdentity({ mobile: fullPhone, email: email || undefined })
-        setIdentityStatus(res.exists ? 'exists' : 'new')
-      } catch {
-        setIdentityStatus('unknown')
-      }
+    try {
+      setCheckingIdentity(true)
+      const email = form.email.trim()
+      const res = await checkIdentity({ mobile: fullPhone, email: email || undefined })
+      const nextStatus = res.exists ? 'exists' : 'new'
+      setIdentityStatus(nextStatus)
+      return nextStatus
+    } catch (e: any) {
+      setIdentityStatus('unknown')
+      setError(e?.message || 'Unable to verify account identity right now.')
+      return 'unknown' as const
+    } finally {
+      setCheckingIdentity(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!form.phone || form.phone.length < 8) {
+      setIdentityStatus('unknown')
+      return
+    }
+
+    const timer = setTimeout(() => {
+      void runIdentityCheck()
     }, 600)
 
     return () => clearTimeout(timer)
@@ -67,6 +87,10 @@ export default function Register() {
     setStep('contact')
   }
 
+  function goToResetPin() {
+    nav(`/forgot-pin?country=${encodeURIComponent(form.countryCode)}&phone=${encodeURIComponent(form.phone)}&email=${encodeURIComponent(form.email.trim())}`)
+  }
+
   async function continueToOtp() {
     const normalizedEmail = form.email.trim()
 
@@ -83,8 +107,17 @@ export default function Register() {
       }
     }
 
-    if (identityStatus === 'exists') {
-      nav(`/forgot-pin?mobile=${encodeURIComponent(fullPhone)}`)
+    setError('')
+
+    const resolvedIdentityStatus = identityStatus === 'unknown' ? await runIdentityCheck() : identityStatus
+
+    if (resolvedIdentityStatus === 'exists') {
+      setError('Account already exists. Please reset your PIN to continue.')
+      return
+    }
+
+    if (resolvedIdentityStatus !== 'new') {
+      setError('Unable to determine account status right now. Please retry.')
       return
     }
 
@@ -94,13 +127,14 @@ export default function Register() {
         mobile: fullPhone,
         email: normalizedEmail || '',
         name: form.fullName.trim(),
-        location
+        location,
+        countryCode: form.countryCode
       })
       nav(`/verify?mobile=${encodeURIComponent(fullPhone)}&mode=register`)
     } catch (e: any) {
       const message = String(e?.message || '')
-      if (message.toLowerCase().includes('failed to fetch') || message.toLowerCase().includes('network')) {
-        setError('Unable to reach the server. Please check API URL/network and retry. OTP can only be sent when server is reachable.')
+      if (message.toLowerCase().includes('network') || message.toLowerCase().includes('cors')) {
+        setError('Unable to reach the server. Please check your network connection and try again.')
       } else {
         setError(message || 'Unable to continue registration')
       }
@@ -149,10 +183,16 @@ export default function Register() {
 
             <input className="neo-control" placeholder="Email (optional)" value={form.email} onChange={e => update('email', e.target.value.trimStart())} />
 
-            {identityStatus === 'exists' && <p className="neo-auth-sub" style={{ color: '#f59e0b' }}>Account already exists for this number. Continue to reset PIN.</p>}
-            {identityStatus === 'new' && <p className="neo-auth-sub" style={{ color: '#22c55e' }}>New personal account detected. OTP will be sent to mobile, and to email when provided.</p>}
+            {checkingIdentity && <p className="neo-auth-sub">Checking account status…</p>}
+            {identityStatus === 'exists' && (
+              <>
+                <p className="neo-auth-sub" style={{ color: '#f59e0b' }}>Account already exists</p>
+                <button type="button" className="neo-btn neo-btn-link" onClick={goToResetPin}>Reset PIN</button>
+              </>
+            )}
+            {identityStatus === 'new' && <p className="neo-auth-sub" style={{ color: '#22c55e' }}>New personal account detected. Continue to receive OTP.</p>}
 
-            <button className="neo-btn neo-btn-primary" onClick={continueToOtp} disabled={loading}>
+            <button className="neo-btn neo-btn-primary" onClick={continueToOtp} disabled={loading || checkingIdentity}>
               {loading ? 'Requesting OTP...' : 'Continue to OTP Verification'}
             </button>
           </>

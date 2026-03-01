@@ -9,6 +9,22 @@ export type RequestOptions = {
   useCredentials?: boolean
 }
 
+export class ApiRequestError extends Error {
+  status: number
+  payload: unknown
+
+  constructor(message: string, status: number, payload: unknown) {
+    super(message)
+    this.name = 'ApiRequestError'
+    this.status = status
+    this.payload = payload
+  }
+}
+
+export function isApiRequestError(error: unknown): error is ApiRequestError {
+  return error instanceof ApiRequestError
+}
+
 function getBaseCandidates() {
   assertApiBaseConfigured()
   const candidates = [API_BASE_URL]
@@ -94,7 +110,7 @@ async function requestAgainstBase<T>(base: string, path: string, options: Reques
 
     if (!response.ok) {
       const message = extractErrorMessage(payload) || `Request failed (${response.status})`
-      throw new Error(message)
+      throw new ApiRequestError(message, response.status, payload)
     }
 
     return payload as T
