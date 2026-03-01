@@ -38,7 +38,7 @@ function largestBreakdownAmount(items: ExpenseBreakdownItem[]) {
 }
 
 export default function Dashboard() {
-  const { data, loading, error, refresh, retryable } = useDashboardData()
+  const { data, loading, error, errorCode, refresh, retryable, isRefreshing } = useDashboardData()
   const [dateOffset, setDateOffset] = useState(1)
   const currencyCode = useMemo(resolveCurrencyCode, [])
 
@@ -46,24 +46,31 @@ export default function Dashboard() {
     return (
       <main className="dashboard-page" aria-busy="true" aria-live="polite">
         <DashboardTabs />
-        <section className="dashboard-card fade-in-up">
-          <p className="loading-text">Loading dashboard…</p>
+        <section className="dashboard-card fade-in-up skeleton-card">
+          <div className="skeleton-line skeleton-line-lg" />
+          <div className="skeleton-line" />
+          <div className="skeleton-line skeleton-line-short" />
         </section>
-        <section className="dashboard-card fade-in-up">
-          <p className="dashboard-subtitle">Loading balances and insights…</p>
+        <section className="dashboard-card fade-in-up skeleton-card">
+          <div className="skeleton-line" />
+          <div className="skeleton-line" />
+          <div className="skeleton-line skeleton-line-short" />
         </section>
-        <section className="dashboard-card fade-in-up">
-          <p className="dashboard-subtitle">Loading category breakdown…</p>
+        <section className="dashboard-card fade-in-up skeleton-card">
+          <div className="skeleton-line" />
+          <div className="skeleton-line skeleton-line-short" />
         </section>
       </main>
     )
   }
+
   if (error) {
     return (
       <main className="dashboard-page">
         <DashboardTabs />
         <section className="dashboard-card fade-in-up">
           <p className="error">{error}</p>
+          {errorCode === 403 ? <p className="dashboard-subtitle">Contact your administrator if this seems unexpected.</p> : null}
           {retryable ? (
             <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry dashboard load</button>
           ) : null}
@@ -71,6 +78,7 @@ export default function Dashboard() {
       </main>
     )
   }
+
   if (!data) return <main className="dashboard-page"><p className="dashboard-subtitle">No dashboard data available yet.</p></main>
 
   const today = data.todaySummary
@@ -80,6 +88,7 @@ export default function Dashboard() {
   return (
     <main className="dashboard-page">
       <DashboardTabs />
+      {isRefreshing ? <p className="dashboard-subtitle">Refreshing dashboard data…</p> : null}
       <DashboardHeader userName={data.userName} profilePhoto={data.profilePhoto} />
       <BalanceCard
         monthLabel={data.monthLabel}
@@ -214,6 +223,7 @@ export default function Dashboard() {
               className="date-arrow"
               onClick={() => setDateOffset(v => Math.max(0, v - 1))}
               aria-label="Previous day"
+              disabled={dateOffset === 0}
             >
               ←
             </button>
@@ -223,6 +233,7 @@ export default function Dashboard() {
               className="date-arrow"
               onClick={() => setDateOffset(v => Math.min(2, v + 1))}
               aria-label="Next day"
+              disabled={dateOffset === 2}
             >
               →
             </button>
@@ -250,7 +261,10 @@ export default function Dashboard() {
       </section>
 
       <section className="dashboard-card fade-in-up">
-        <h3 className="card-heading">Quick Actions</h3>
+        <div className="bills-head">
+          <h3 className="card-heading">Quick Actions</h3>
+          <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Refresh</button>
+        </div>
         <div className="job-grid">
           {data.jobs.map(job => (
             <Link key={job.id} to={job.href} className="job-card">
@@ -285,12 +299,16 @@ export default function Dashboard() {
           <Link to="/dashboard/transactions?view=all-bills" className="bills-all-link">All Bills →</Link>
         </div>
         <div className="bill-list">
-          {data.bills.map(bill => (
-            <Link key={bill.id} to={bill.href} className="bill-row">
-              <span>{bill.shop}</span>
-              <strong>{formatCurrency(bill.amount, currencyCode)}</strong>
-            </Link>
-          ))}
+          {data.bills.length === 0 ? (
+            <p className="dashboard-subtitle">No bill records yet.</p>
+          ) : (
+            data.bills.map(bill => (
+              <Link key={bill.id} to={bill.href} className="bill-row">
+                <span>{bill.shop}</span>
+                <strong>{formatCurrency(bill.amount, currencyCode)}</strong>
+              </Link>
+            ))
+          )}
         </div>
       </section>
     </main>

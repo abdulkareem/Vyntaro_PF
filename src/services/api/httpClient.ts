@@ -9,6 +9,11 @@ export type RequestOptions = {
   useCredentials?: boolean
 }
 
+type StoredSession = {
+  accessToken?: string
+  token?: string
+}
+
 export class ApiRequestError extends Error {
   status: number
   payload: unknown
@@ -30,6 +35,23 @@ function getBaseCandidates() {
   const candidates = [API_BASE_URL]
   if (canUseSameOriginFallback()) candidates.push('')
   return Array.from(new Set(candidates.map(base => base.replace(/\/$/, ''))))
+}
+
+function readJsonFromStorage<T>(key: string): T | null {
+  const fromSession = sessionStorage.getItem(key)
+  if (fromSession) return JSON.parse(fromSession) as T
+
+  const fromLocal = localStorage.getItem(key)
+  if (fromLocal) return JSON.parse(fromLocal) as T
+  return null
+}
+
+function getStoredAuthToken() {
+  const direct = readJsonFromStorage<string>('authToken')
+  if (direct) return direct
+
+  const session = readJsonFromStorage<StoredSession>('session')
+  return session?.accessToken || session?.token || null
 }
 
 function withTimeout(ms: number) {
@@ -80,13 +102,14 @@ async function requestAgainstBase<T>(base: string, path: string, options: Reques
   const timeoutMs = options.timeoutMs ?? 15000
   const endpoint = `${base}${path}`
   const { controller, timeoutId } = withTimeout(timeoutMs)
+  const authToken = options.authToken || getStoredAuthToken()
 
   try {
     const response = await fetch(endpoint, {
       method: options.method ?? 'GET',
       headers: {
         'Content-Type': 'application/json',
-        ...(options.authToken ? { Authorization: `Bearer ${options.authToken}` } : {}),
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...(options.headers || {})
       },
       ...(typeof options.body === 'undefined' ? {} : { body: JSON.stringify(options.body) }),

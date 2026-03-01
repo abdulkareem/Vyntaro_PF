@@ -4,7 +4,7 @@ import { useDashboardData } from '../hooks/useDashboardData'
 type Point = { name: string; income: number; expense: number }
 
 export default function Analytics() {
-  const { data, loading, error, refresh } = useDashboardData()
+  const { data, loading, error, refresh, retryable } = useDashboardData()
   const points: Point[] = data?.analytics ?? []
 
   const maxValue = points.reduce((max, item) => Math.max(max, item.income, item.expense), 1)
@@ -14,12 +14,18 @@ export default function Analytics() {
       <DashboardTabs />
       <h2 className="screen-title">Insights</h2>
       <section className="dashboard-card fade-in-up">
-        <p className="dashboard-subtitle">Money overview</p>
-        {loading && <p className="loading-text">Loading analytics…</p>}
+        <p className="dashboard-subtitle">Monthly trends and category charts.</p>
+        {loading && (
+          <div className="skeleton-card">
+            <div className="skeleton-line" />
+            <div className="skeleton-line" />
+            <div className="skeleton-line skeleton-line-short" />
+          </div>
+        )}
         {!loading && error && (
           <div>
             <p className="error">{error}</p>
-            <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry</button>
+            {retryable ? <button className="neo-btn neo-btn-link" type="button" onClick={() => void refresh()}>Retry</button> : null}
           </div>
         )}
         {!loading && !error && points.length === 0 && <p className="dashboard-subtitle">No analytics data yet.</p>}

@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import DashboardTabs from '../components/dashboard/DashboardTabs'
-import { currentUser, requestProfileUpdateOtp, updateProfile, verifyProfileUpdateOtp } from '../services/auth'
+import { currentUser, logout, requestProfileUpdateOtp, updateProfile, verifyProfileUpdateOtp } from '../services/auth'
+import { clearDashboardCache } from '../hooks/useDashboardData'
 import { toUserFacingError } from '../services/userMessage'
 
 export default function Profile() {
+  const navigate = useNavigate()
   const [user, setUser] = useState(currentUser())
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [email, setEmail] = useState(user?.email ?? '')
@@ -71,6 +74,14 @@ export default function Profile() {
     }
   }
 
+
+
+  const onLogout = () => {
+    clearDashboardCache()
+    logout()
+    navigate('/login', { replace: true })
+  }
+
   const saveChanges = async () => {
     if (!otpToken) {
       setError('Verify OTP before updating settings.')
@@ -110,9 +121,13 @@ export default function Profile() {
         <p className="profile-value">{user?.mobile ?? 'Not available'}</p>
       </article>
       <article className="dashboard-card fade-in-up">
-        <button className="neo-btn neo-btn-primary" onClick={() => setSettingsOpen(v => !v)}>
+        <div className="bills-head">
+          <button className="neo-btn neo-btn-primary" onClick={() => setSettingsOpen(v => !v)}>
           {settingsOpen ? 'Close Settings' : 'Settings & Verification'}
-        </button>
+          </button>
+          <button className="neo-btn neo-btn-link" onClick={onLogout}>Logout</button>
+        </div>
+
 
         {settingsOpen && (
           <div className="neo-form-stack" style={{ marginTop: 12 }}>
